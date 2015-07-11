@@ -37,6 +37,15 @@ class Record:
             return str((self.name, types.type_name(self.qtype)))
         else:
             return str((self.name, types.type_name(self.qtype), self.data, self.ttl))
+    def copy(self, **kw):
+        return Record(
+            q = kw.get('q', self.q),
+            name = kw.get('name', self.name),
+            qtype = kw.get('qtype', self.qtype),
+            qclass = kw.get('qclass', self.qclass),
+            ttl = kw.get('ttl', self.ttl),
+            data = kw.get('data', self.data)
+        )
     def update(self, other):
         if (self.name, self.qtype, self.data) == (other.name, other.qtype, other.data):
             if self.ttl and other.ttl > self.ttl:
@@ -112,12 +121,18 @@ class Hosts:
         return bool(self.data)
 
     def __repr__(self):
-        return '<Hosts [' + ', '.join(self.data.keys()) + ']>'
+        return '<%s [%s]>' % (self.__class__.__name__, ', '.join(self.data.keys()))
+
+    def update(self, other):
+        for k, v in other.data.items():
+            item = self.data.setdefault(k, [])
+            item.extend(v)
 
     # #TTL is reserved for for pydns generated hosts file
     rec_ttl = '#TTL'
     len_ttl = len(rec_ttl)
     def parse_file(self, filename):
+        filename = os.path.expanduser(filename)
         if not filename or not os.path.isfile(filename):
             return
         for line in open(filename, 'r'):
@@ -185,7 +200,7 @@ class Hosts:
                 cname = i
         return aaaa or a or cname or default
 
-    def query(self, name, qtype):
+    def query(self, name, qtype = types.ANY):
         name = name.lower()
         while True:
             host = self.get(name)
@@ -193,8 +208,11 @@ class Hosts:
             i = name.find('.', 1)
             if i < 0: break
             name = name[i:]
-        for h in host:
-            if qtype in (h.qtype, types.CNAME, types.ANY): yield h
+        try:
+            qtype = tuple(qtype)
+        except:
+            qtype = qtype,
+        return filter(lambda h: h.qtype in qtype, host)
 
 def ip_type(host):
     try:
@@ -218,7 +236,7 @@ def ip_type(host):
                 assert 0 <= int(part) <= 0xff
             return types.A
     except:
-        return types.CNAME
+        pass
 
 def get_name(data, i):
     a = []

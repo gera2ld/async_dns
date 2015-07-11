@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
-import asyncio, logging, time, random, os, itertools
+import asyncio, logging, time, random, os
 from urllib import request
 from . import utils, types
 
@@ -36,60 +36,27 @@ def get_root_servers(fname = cachefile):
     if os.path.isfile(fname):
         for line in open(fname, 'r'):
             if line.startswith(';'): continue
-            data = []
-            for i in filter(None, line.split()):
-                if i == '3600000': data.append(-1)
-                elif i == 'NS': data.append(types.NS)
-                elif i == 'A': data.append(types.A)
-                elif i == 'AAAA': data.append(types.AAAA)
-                elif i != 'IN': data.append(i.strip('.'))
+            it = iter(filter(None, line.split()))
+            data = [next(it)]   # name
+            expires = next(it)  # ignored
+            data.append(next(it))   # qtype
+            data.append(next(it))   # data.strip('.')
             yield data
 
-class MemCache:
+class DNSMemCache(utils.Hosts):
     name = 'DNSMemD/Gerald'
-    def __init__(self):
-        self.data = {}
-        self.save_items([('1.0.0.127.in-addr.arpa', -1, types.PTR, self.name)])
-        self.save_items(get_root_servers())
+    def __init__(self, filename = None):
+        super().__init__(filename)
+        self.add_item('1.0.0.127.in-addr.arpa', types.PTR, self.name)
+        for i in get_root_servers():
+            self.add_item(*i)
 
-    def save_items(self, items):
-        for name, timeout, qtype, data in items:
-            item = self.data.setdefault(name.lower(), {})
-            t = item.setdefault(qtype, [None, None])
-            if t[0] is None or t[0] > 0 and t[0] < timeout:
-                t[0] = timeout
-                t[1] = set()
-            if t[0] == timeout:
-                t[1].add(data)
-
-    def query(self, fqdn, qtype, qany = False):
-        todel = []
-        data = []
-        fqdn = fqdn.lower()
-        d = self.data.get(fqdn, {})
-        now = time.time()
-        for i in d:
-            if qtype == i or qany and qtype != types.CNAME:
-                v = d[i]
-                if v[0] < 0 or v[0] > now:
-                    for a in v[1]:
-                        data.append((fqdn, v[0], qtype, a))
-                else:
-                    todel.append(i)
-        for i in todel:
-            d.pop(i)
-        return data
-
-    def load_hosts(self, hosts = utils.hosts):
-        if not hosts: return
-        self.save_items([
-            (rec.name, -1, rec.qtype, rec.data)
-            for rec in itertools.chain.from_iterable(hosts.data.values())
-        ])
+    def add_item(self, key, qtype, data):
+        self.add_host(key, utils.Record(name = key, data = data, qtype = qtype, ttl = -1))
 
 class DNSServerProtocol(asyncio.DatagramProtocol):
     recursion_available = 1
-    cache = MemCache()
+    cache = DNSMemCache()
 
     def connection_made(self, transport):
         self.transport = transport
@@ -98,47 +65,49 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
         empty = True
         while fqdn and empty:
             sub, _, fqdn = fqdn.partition('.')
-            for i in self.cache.query(fqdn, types.NS):
-                for r in self.cache.query(i[3], None, True):
-                    yield r[3]
+            for rec in self.cache.query(fqdn, types.NS):
+                host = rec.data
+                if utils.ip_type(host) is None:
+                    for r in self.cache.query(host, A_TYPES):
+                        yield r.data
+                        empty = False
+                else:
+                    yield host
                     empty = False
 
     @asyncio.coroutine
     def query(self, fqdn, qtype = types.ANY):
-        # cached CNAME
-        cname = self.cache.query(fqdn, types.CNAME)
         res = utils.DNSMessage(ra = self.recursion_available)
         res.qd.append(utils.Record(utils.REQUEST, name = fqdn, qtype = qtype))
-        for i in cname:
-            res.an.append(utils.Record(name = i[0], ttl = i[1], qtype = i[2], data = i[3]))
+
+        # cached CNAME
+        cname = list(self.cache.query(fqdn, types.CNAME))
         if cname:
+            res.an.extend(cname)
             if not self.recursion_available or qtype == types.CNAME:
                 return res
-            for i in cname:
-                cres = yield from self.query(i[3], qtype)
+            for rec in cname:
+                cres = yield from self.query(rec.data, qtype)
                 if cres is None or cres.r > 0: continue
                 res.an.extend(cres.an)
                 res.ns = cres.ns
                 res.ar = cres.ar
             return res
-        # cached others
-        data = self.cache.query(fqdn, qtype, qtype == types.ANY)
+        # cached else
+        data = list(self.cache.query(fqdn, qtype))
         if data:
             n = 0
-            for i in data:
-                r = utils.Record(name = i[0], ttl = i[1], qtype = i[2], data = i[3])
-                if i[2] in (types.NS,):
-                    ip = self.cache.query(r.data, None, True)
-                    empty = True
-                    for j in ip:
-                        res.ar.append(dns.record(name = j[0], ttl = j[1], qtype = j[2], data = j[3]))
-                        empty = False
+            for rec in data:
+                if rec.qtype in (types.NS,):
+                    nres = list(self.cache.query(r.data, A_TYPES))
+                    empty = not nres
                     if not empty:
-                        res.ns.append(r)
-                        if i[2] == qtype: n += 1
+                        res.ar.extend(nres)
+                        res.ns.append(rec)
+                        if rec.qtype == qtype: n += 1
                 else:
-                    res.an.append(r)
-                    if qtype == types.CNAME or r.qtype != types.CNAME:
+                    res.an.append(rec.copy(name = fqdn))
+                    if qtype == types.CNAME or rec.qtype != types.CNAME:
                         n += 1
             if n > 0:
                 # can only be added for local domains
@@ -180,7 +149,7 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             cres = utils.raw_parse(data)
             for r in cres.an + cres.ns + cres.ar:
                 if r.ttl > 0 and r.qtype not in (types.SOA, types.MX):
-                    updates.append((r.name,r.ttl,r.qtype,r.data))
+                    updates.append(r)
             for r in cres.an:
                 res.an.append(r)
                 if r.qtype == types.CNAME:
@@ -211,10 +180,11 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             if cres.r > 0:
                 res.r = cres.r
                 n = 1
-        if updates:
-            self.cache.save_items(updates)
-        if n > 0:
-            return res
+        for rec in updates:
+            self.cache.add_host(rec.name, rec)
+        if not n:
+            res.r = 3
+        return res
 
     @asyncio.coroutine
     def handle(self, data, addr):
@@ -239,7 +209,9 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         asyncio.ensure_future(self.handle(data, addr))
 
-def serve(host = '0.0.0.0', port = 53):
+def serve(host = '0.0.0.0', port = 53, hosts = None):
+    if hosts:
+        DNSServerProtocol.cache.parse_file(hosts)
     loop = asyncio.get_event_loop()
     listen = loop.create_datagram_endpoint(
         DNSServerProtocol, local_addr = (host, port))
@@ -253,3 +225,18 @@ def serve(host = '0.0.0.0', port = 53):
         pass
     transport.close()
     loop.close()
+
+if __name__ == '__main__':
+    import argparse, sys, logging
+    logging.basicConfig(level = logging.INFO)
+    parser = argparse.ArgumentParser(description = 'DNS server by Gerald.')
+    parser.add_argument('-b', '--bind', default = ':', help = 'the address for the server to bind')
+    parser.add_argument('-c', help = 'the path of a hosts file')
+    args = parser.parse_args()
+    host, _, port = args.bind.rpartition(':')
+    if not host: host = '0.0.0.0'
+    if port:
+        port = int(port)
+    else:
+        port = 53
+    serve(host, port, args.c)
