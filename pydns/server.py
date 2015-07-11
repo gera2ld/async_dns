@@ -115,10 +115,9 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
     @asyncio.coroutine
     def query_remote(self, res, fqdn, qtype):
         # look up from other DNS servers
-        nsip = list(self.get_nameservers(fqdn))
+        nsip = self.get_nameservers(fqdn)
         req = utils.DNSMessage(utils.REQUEST, random.randint(0, 65535))
         cname = [fqdn]
-        updates = []
         n = 0
         while not n:
             if not cname: break
@@ -148,7 +147,7 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             cres = utils.raw_parse(data)
             for r in cres.an + cres.ns + cres.ar:
                 if r.ttl > 0 and r.qtype not in (types.SOA, types.MX):
-                    updates.append(r)
+                    self.cache.add_host(r.name, r)
             for r in cres.an:
                 res.an.append(r)
                 if r.qtype == types.CNAME:
@@ -179,8 +178,6 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             if cres.r > 0:
                 res.r = cres.r
                 n = 1
-        for rec in updates:
-            self.cache.add_host(rec.name, rec)
         if not n:
             res.r = 3
 
@@ -214,12 +211,18 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         asyncio.ensure_future(self.handle(data, addr))
 
-def serve(host = '0.0.0.0', port = 53, hosts = None):
+class DNSProxyProtocol(DNSServerProtocol):
+    proxies = ['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6']
+
+    def get_nameservers(self, fdqn = None):
+        return self.proxies
+
+def serve(host = '0.0.0.0', port = 53, protocolClass = DNSProxyProtocol, hosts = None):
     if hosts:
         DNSServerProtocol.cache.parse_file(hosts)
     loop = asyncio.get_event_loop()
     listen = loop.create_datagram_endpoint(
-        DNSServerProtocol, local_addr = (host, port))
+        protocolClass, local_addr = (host, port))
     transport, protocol = loop.run_until_complete(listen)
     logging.info('DNS server v2 - by Gerald')
     sock = transport.get_extra_info('socket')
@@ -244,4 +247,4 @@ if __name__ == '__main__':
         port = int(port)
     else:
         port = 53
-    serve(host, port, args.c)
+    serve(host, port, hosts = args.c)
