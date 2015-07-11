@@ -12,7 +12,8 @@ TYPES = {
     33: 'SRV',
     255: 'ANY',
 }
-globals().update(dict(map(lambda item: (item[1], item[0]), TYPES.items())))
+MAP_TYPES = dict(map(lambda item: (item[1], item[0]), TYPES.items()))
+globals().update(MAP_TYPES)
 
 def type_name(code):
 	return TYPES.get(code, str(code))

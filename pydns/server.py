@@ -37,10 +37,10 @@ def get_root_servers(fname = cachefile):
         for line in open(fname, 'r'):
             if line.startswith(';'): continue
             it = iter(filter(None, line.split()))
-            data = [next(it)]   # name
+            data = [next(it).rstrip('.')]   # name
             expires = next(it)  # ignored
-            data.append(next(it))   # qtype
-            data.append(next(it))   # data.strip('.')
+            data.append(types.MAP_TYPES.get(next(it), 0))   # qtype
+            data.append(next(it).rstrip('.'))   # data
             yield data
 
 class DNSMemCache(utils.Hosts):
@@ -76,23 +76,20 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
                     empty = False
 
     @asyncio.coroutine
-    def query(self, fqdn, qtype = types.ANY):
-        res = utils.DNSMessage(ra = self.recursion_available)
-        res.qd.append(utils.Record(utils.REQUEST, name = fqdn, qtype = qtype))
-
+    def query_cache(self, res, fqdn, qtype):
         # cached CNAME
         cname = list(self.cache.query(fqdn, types.CNAME))
         if cname:
             res.an.extend(cname)
             if not self.recursion_available or qtype == types.CNAME:
-                return res
+                return True
             for rec in cname:
                 cres = yield from self.query(rec.data, qtype)
                 if cres is None or cres.r > 0: continue
                 res.an.extend(cres.an)
                 res.ns = cres.ns
                 res.ar = cres.ar
-            return res
+            return True
         # cached else
         data = list(self.cache.query(fqdn, qtype))
         if data:
@@ -113,10 +110,12 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
                 # can only be added for local domains
                 # res.ns.append(dns.record(name = 12, qtype = types.NS, data = 'localhost'))
                 # res.ar.append(dns.record(name = 12, qtype = types.A, data = '127.0.0.1'))
-                return res
+                return True
 
+    @asyncio.coroutine
+    def query_remote(self, res, fqdn, qtype):
         # look up from other DNS servers
-        nsip = self.get_nameservers(fqdn)
+        nsip = list(self.get_nameservers(fqdn))
         req = utils.DNSMessage(utils.REQUEST, random.randint(0, 65535))
         cname = [fqdn]
         updates = []
@@ -184,6 +183,12 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             self.cache.add_host(rec.name, rec)
         if not n:
             res.r = 3
+
+    @asyncio.coroutine
+    def query(self, fqdn, qtype = types.ANY):
+        res = utils.DNSMessage(ra = self.recursion_available)
+        res.qd.append(utils.Record(utils.REQUEST, name = fqdn, qtype = qtype))
+        (yield from self.query_cache(res, fqdn, qtype)) or (yield from self.query_remote(res, fqdn, qtype))
         return res
 
     @asyncio.coroutine

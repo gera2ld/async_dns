@@ -158,6 +158,7 @@ class Hosts:
                 self.add_host(i, Record(name = i, qtype = tp, ttl = ttl, data = ip))
 
     def add_host(self, key, value):
+        key = key.lower()
         item = self.data.get(key, [])
         if isinstance(value, Record):
             value = [value]
