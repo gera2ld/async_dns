@@ -57,6 +57,7 @@ class DNSMemCache(utils.Hosts):
 class DNSServerProtocol(asyncio.DatagramProtocol):
     recursion_available = 1
     cache = DNSMemCache()
+    rootdomains = ['.lan']
 
     def connection_made(self, transport):
         self.transport = transport
@@ -92,8 +93,8 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             return True
         # cached else
         data = list(self.cache.query(fqdn, qtype))
+        n = 0
         if data:
-            n = 0
             for rec in data:
                 if rec.qtype in (types.NS,):
                     nres = list(self.cache.query(r.data, A_TYPES))
@@ -106,11 +107,16 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
                     res.an.append(rec.copy(name = fqdn))
                     if qtype == types.CNAME or rec.qtype != types.CNAME:
                         n += 1
-            if n > 0:
-                # can only be added for local domains
-                # res.ns.append(dns.record(name = 12, qtype = types.NS, data = 'localhost'))
-                # res.ar.append(dns.record(name = 12, qtype = types.A, data = '127.0.0.1'))
-                return True
+        if list(filter(None, map(fqdn.endswith, self.rootdomains))):
+            if not n:
+                res.r = 3
+                n = 1
+            # can only be added for domains that are resolved by this server
+            res.aa = 1  # Authoritative answer
+            res.ns.append(utils.Record(name = fqdn, qtype = types.NS, data = 'localhost'))
+            res.ar.append(utils.Record(name = fqdn, qtype = types.A, data = '127.0.0.1'))
+        if n:
+            return True
 
     @asyncio.coroutine
     def query_remote(self, res, fqdn, qtype):
@@ -137,8 +143,10 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
                     data, addr = yield from asyncio.wait_for(future, 3.0)
                     transport.close()
                     assert data.startswith(qid), utils.DNSError(-1, 'Message id does not match!')
-                except (asyncio.TimeoutError, utils.DNSError) as e:
-                    print(e)
+                except asyncio.TimeoutError:
+                    pass
+                except utils.DNSError as e:
+                    print('error', e)
                     pass
                 else:
                     break
@@ -178,8 +186,7 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             if cres.r > 0:
                 res.r = cres.r
                 n = 1
-        if not n:
-            res.r = 3
+        if n: return res
 
     @asyncio.coroutine
     def query(self, fqdn, qtype = types.ANY):
@@ -235,7 +242,7 @@ def serve(host = '0.0.0.0', port = 53, protocolClass = DNSProxyProtocol, hosts =
     loop.close()
 
 if __name__ == '__main__':
-    import argparse, sys, logging
+    import argparse, sys
     logging.basicConfig(level = logging.INFO)
     parser = argparse.ArgumentParser(description = 'DNS server by Gerald.')
     parser.add_argument('-b', '--bind', default = ':', help = 'the address for the server to bind')
