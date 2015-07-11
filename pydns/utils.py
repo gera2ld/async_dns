@@ -341,48 +341,6 @@ def raw_parse(data, qid = None):
     l = parse_entry(RESPONSE, data, l, ar, ans.ar)
     return ans
 
-class Resolver:
-    expected_types = types.AAAA, types.A
-    def __init__(self, _nameservers = None, timeout = 3.0, hosts_file = None):
-        if _nameservers:
-            # Resolve nameservers using default DNS
-            from . import client
-            self.nameservers = list(map(client.query_ip, _nameservers))
-        else:
-            self.nameservers = list(nameservers)
-        self.timeout = timeout
-        if hosts_file:
-            self.hosts = Hosts(hosts_file)
-        else:
-            self.hosts = hosts
-    def query_ip(self, name):
-        if ip_type(name) in self.expected_types:
-            return name
-        for t in self.expected_types:
-            nm = name
-            while True:
-                a = None
-                while True:
-                    if self.hosts:
-                        for c in self.hosts.query(nm, t):
-                            if c.qtype == t:
-                                return c.data
-                            if a is None: a = c
-                    if a:
-                        nm, a = a.data, None
-                    else:
-                        break
-                last = nm
-                ans = self.query(nm, t)
-                if not ans: break
-                a = None
-                for c in ans.an:
-                    if c.qtype == t: return c.data
-                    if a is None: a = c
-                if a: nm = a.data
-                else: break
-        return last
-
 # Support Python < 3.4
 def inet_ntop(fa, ip):
     if fa == socket.AF_INET:

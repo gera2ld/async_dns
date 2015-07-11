@@ -24,7 +24,24 @@ def raw_send(b, addr, timeout = 3.0):
         if sock: sock.close()
     return data
 
-class Resolver(utils.Resolver):
+class Resolver:
+    '''
+    A synchronous DNS resolver.
+    '''
+    expected_types = types.AAAA, types.A
+    def __init__(self, nameservers = None, timeout = 3.0, hosts_file = None):
+        if nameservers:
+            # Resolve nameservers using default DNS
+            from . import client
+            self.nameservers = list(map(client.query_ip, nameservers))
+        else:
+            self.nameservers = list(utils.nameservers)
+        self.timeout = timeout
+        if hosts_file:
+            self.hosts = Hosts(hosts_file)
+        else:
+            self.hosts = utils.hosts
+
     def query(self, name, qtype = types.ANY, qclass = 1, recursive = 1, no_cache = False):
         # query hosts
         if not no_cache:
@@ -46,6 +63,34 @@ class Resolver(utils.Resolver):
         if ans.r > 0:
             raise DNSError(ans.r)
         return ans
+
+    def query_ip(self, name):
+        if utils.ip_type(name) in self.expected_types:
+            return name
+        for t in self.expected_types:
+            nm = name
+            while True:
+                a = None
+                while True:
+                    if self.hosts:
+                        for c in self.hosts.query(nm, t):
+                            if c.qtype == t:
+                                return c.data
+                            if a is None: a = c
+                    if a:
+                        nm, a = a.data, None
+                    else:
+                        break
+                last = nm
+                ans = self.query(nm, t)
+                if not ans: break
+                a = None
+                for c in ans.an:
+                    if c.qtype == t: return c.data
+                    if a is None: a = c
+                if a: nm = a.data
+                else: break
+        return last
 
 resolver = Resolver()
 def query(*k, **kw):
