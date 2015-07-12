@@ -115,8 +115,8 @@ class AsyncResolver:
                 n = 1
             # can only be added for domains that are resolved by this server
             res.aa = 1  # Authoritative answer
-            res.ns.append(utils.Record(name = fqdn, qtype = types.NS, data = 'localhost'))
-            res.ar.append(utils.Record(name = fqdn, qtype = types.A, data = '127.0.0.1'))
+            res.ns.append(utils.Record(name = fqdn, qtype = types.NS, data = 'localhost', ttl = -1))
+            res.ar.append(utils.Record(name = fqdn, qtype = types.A, data = '127.0.0.1', ttl = -1))
         if n:
             return True
 

@@ -24,14 +24,13 @@ class DNSError(Exception):
 class Record:
     def __init__(self, q = RESPONSE, name = '', qtype = types.ANY, qclass = 1, ttl = 0, data = None):
         self.q = q
-        if not isinstance(name, int) and name.endswith('.'):
-            name = name[:-1]
         self.name = name
         self.qtype = qtype
         self.qclass = qclass
         if q == RESPONSE:
             self.ttl = ttl    # 0 means item should not be cached
             self.data = data
+            self.timestamp = int(time.time())
     def __repr__(self):
         if self.q == REQUEST:
             return str((self.name, types.type_name(self.qtype)))
@@ -52,14 +51,13 @@ class Record:
                 self.ttl = other.ttl
             return self
     def parse(self, data, l):
-        now = int(time.time())
         l, self.name = get_name(data, l)
         self.qtype, self.qclass = struct.unpack('!HH', data[l: l + 4])
         l += 4
         if self.q == RESPONSE:
-            ttl, dl = struct.unpack('!LH', data[l: l + 6])
+            self.timestamp = int(time.time())
+            self.ttl, dl = struct.unpack('!LH', data[l: l + 6])
             l += 6
-            self.ttl = now + ttl
             if self.qtype == types.A:
                 self.data = socket.inet_ntoa(data[l: l + dl])
             elif self.qtype == types.AAAA:
@@ -87,11 +85,15 @@ class Record:
         pack_name(self.name, buf, names)
         buf.write(struct.pack('!HH', self.qtype, self.qclass))
         if self.q == RESPONSE:
-            ttl = self.ttl
-            if ttl < 0:
+            if self.ttl < 0:
                 ttl = MAXAGE
             else:
-                ttl -= int(time.time())
+                now = int(time.time())
+                self.ttl -= now - self.timestamp
+                if self.ttl < 0:
+                    self.ttl = 0
+                self.timestamp = now
+                ttl = self.ttl
             buf.write(struct.pack('!L', ttl))
             if self.qtype == types.A:
                 buf.write(pack_string(socket.inet_aton(self.data), '!H'))
@@ -179,14 +181,17 @@ class Hosts:
         self.changed = True
 
     def get(self, key, default = None):
+        # TODO improve cache GC performance
         vs = self.data.get(key)
         now = time.time()
         if vs is not None:
             i = 0
             while i < len(vs):
                 v = vs[i]
-                if 0 < v.ttl < now:
-                    del vs[i]
+                if v.ttl >= 0 and v.timestamp + v.ttl < now:
+                    last = vs.pop()
+                    if last is not v:
+                        vs[i] = last
                     self.changed = True
                 else:
                     i += 1
