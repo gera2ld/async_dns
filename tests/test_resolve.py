@@ -3,6 +3,5 @@
 import base
 from pydns import resolver
 
-rsv = resolver.Resolver()
-print(rsv.query('www.baidu.com'))
-print(rsv.query_ip('gerald.top'))
+print(resolver.query('www.baidu.com'))
+print(resolver.query_ip('gerald.top'))
