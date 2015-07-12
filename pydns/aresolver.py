@@ -5,6 +5,7 @@ Asynchronous DNS client to query a queue of domains asynchronously.
 This is designed to improve performance of the server.
 '''
 import asyncio, os, logging
+from collections import deque
 from . import utils, types
 
 A_TYPES = types.A, types.AAAA
@@ -56,10 +57,10 @@ class DNSMemCache(utils.Hosts):
             self.add_item(*i)
 
     def add_item(self, key, qtype, data):
-        self.add_host(key, utils.Record(name = key, data = data, qtype = qtype, ttl = -1))
+        self.add_host(utils.Record(name = key, data = data, qtype = qtype, ttl = -1))
 
 class AsyncResolver:
-    recursion_available = 1
+    recursive = 1
     rootdomains = ['.lan']
     def __init__(self):
         self.queue = asyncio.Queue()
@@ -84,7 +85,7 @@ class AsyncResolver:
         cname = list(self.cache.query(fqdn, types.CNAME))
         if cname:
             res.an.extend(cname)
-            if not self.recursion_available or qtype == types.CNAME:
+            if not self.recursive or qtype == types.CNAME:
                 return True
             for rec in cname:
                 cres = yield from self.query(rec.data, qtype)
@@ -149,7 +150,7 @@ class AsyncResolver:
             del cname[:]
             qid = qdata[:2]
             loop = asyncio.get_event_loop()
-            for ip in nsip:
+            for ip in tuple(nsip):
                 future = asyncio.Future()
                 try:
                     transport, protocol = yield from asyncio.wait_for(
@@ -162,7 +163,8 @@ class AsyncResolver:
                     if not data.startswith(qid):
                         raise utils.DNSError(-1, 'Message id does not match!')
                 except asyncio.TimeoutError:
-                    pass
+                    if isinstance(nsip, deque):
+                        nsip.append(nsip.popleft())
                 except utils.DNSError:
                     pass
                 else:
@@ -172,25 +174,26 @@ class AsyncResolver:
             cres = utils.raw_parse(data)
             for r in cres.an + cres.ns + cres.ar:
                 if r.ttl > 0 and r.qtype not in (types.SOA, types.MX):
-                    self.cache.add_host(r.name, r)
+                    self.cache.add_host(r)
             for r in cres.an:
                 res.an.append(r)
                 if r.qtype == types.CNAME:
                     cname.append(r.data)
-                if (r.name.lower() == req.qd[0].name.lower() and
-                    (qtype == types.CNAME or r.qtype != types.CNAME)):
+                if qtype == types.CNAME or r.qtype != types.CNAME:
                     n += 1
             for r in cres.ns:
-                res.ns.append(r)
-                if r.qtype == types.SOA or qtype == types.NS:
+                if not self.recursive:
+                    res.ns.append(r)
                     n += 1
-            res.ar.extend(cres.ar)
+                elif r.qtype == types.SOA or qtype == types.NS:
+                    n += 1
+            if not self.recursive:
+                res.ar.extend(cres.ar)
             nsip = [i.data for i in cres.ar if i.qtype in A_TYPES]
             if not nsip:
                 for i in cres.ns:
-                    host = i.data[0] if i.qtype == types.SOA else i.data
+                    host = i.data.mname if i.qtype == types.SOA else i.data
                     try:
-                        # XXX is NS always a hostname? need ip_version test?
                         ns = yield from self.query(host)
                     except Exception as e:
                         logging.error(host)
@@ -199,8 +202,7 @@ class AsyncResolver:
                         for j in ns.an:
                             if j.qtype in A_TYPES:
                                 nsip.append(j.data)
-            if cres.r > 0:
-                res.r = cres.r
+            res.r = cres.r
         return n > 0
 
     @asyncio.coroutine
@@ -215,11 +217,12 @@ class AsyncResolver:
     @asyncio.coroutine
     def query_key(self, key):
         fqdn, qtype = key
-        res = utils.DNSMessage(ra = self.recursion_available)
+        res = utils.DNSMessage(ra = self.recursive)
         res.qd.append(utils.Record(utils.REQUEST, name = fqdn, qtype = qtype))
         future = self.futures[key]
         ret = (yield from self.query_cache(res, fqdn, qtype)) or (yield from self.query_remote(res, fqdn, qtype))
-        if not ret: res.r = 2
+        if not ret and not res.r:
+            res.r = 2
         with (yield from self.lock):
             self.futures.pop(key)
         if not future.cancelled():
@@ -232,7 +235,7 @@ class AsyncResolver:
             asyncio.ensure_future(self.query_key(key))
 
 class AsyncProxyResolver(AsyncResolver):
-    proxies = ['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6']
+    proxies = deque(['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6'])
 
     def get_nameservers(self, fdqn = None):
         return self.proxies
