@@ -201,7 +201,6 @@ class AsyncResolver:
                                 nsip.append(j.data)
             if cres.r > 0:
                 res.r = cres.r
-                n = 1
         return n > 0
 
     @asyncio.coroutine

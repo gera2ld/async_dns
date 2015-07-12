@@ -20,7 +20,7 @@ def raw_send(b, addr, timeout = 3.0):
     sock.sendto(b, addr)
     return sock
 
-class Resolver:
+class SyncResolver:
     '''
     A synchronous DNS resolver.
     '''
@@ -99,7 +99,7 @@ class Resolver:
                 else: break
         return last
 
-resolver = Resolver()
+resolver = SyncResolver()
 def query(*k, **kw):
     return resolver.query(*k, **kw)
 def query_ip(*k, **kw):

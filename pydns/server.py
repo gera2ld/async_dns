@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # coding=utf-8
 import asyncio, logging
-from . import utils, types, client
+from . import utils, types, aresolver
 
 class DNSServerProtocol(asyncio.DatagramProtocol):
-    resolver = client.AsyncProxyResolver()
+    resolver = aresolver.AsyncProxyResolver()
 
     def connection_made(self, transport):
         self.transport = transport
