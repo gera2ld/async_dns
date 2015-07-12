@@ -141,7 +141,8 @@ class Hosts:
             ip = None
             ttl = -1    # persistent
             values = []
-            for i in filter(None, line.split()):
+            # str.split will discard redundant white spaces
+            for i in line.split():
                 if ip is None:
                     ip, tp = i, ip_type(i)
                     if tp == 0: break
@@ -318,14 +319,15 @@ def parse_entry(qr, data, l, n, res):
         if res is not None:
             res.append(r)
     return l
-def raw_pack(qid, name, qtype = types.ANY, qclass = 1, recursive = 1):
+def dns_request(qid = None, recursive = 1):
+    if qid is None:
+        qid = random.randint(0, 65535)
     req = DNSMessage(REQUEST, qid, rd = recursive)
-    req.qd.append(Record(REQUEST, name, qtype, qclass))
-    return req.pack()
+    return req
 def raw_parse(data, qid = None):
     _qid, x, qd, an, ns, ar = struct.unpack('!HHHHHH', data[:12])
-    if qid is not None:
-        assert qid == _qid, DNSError(-1, 'Message id does not match!')
+    if qid is not None and qid != _qid:
+        raise DNSError(-1, 'Message id does not match!')
     r, x = get_bits(x, 16)
     z, x = get_bits(x, 8)
     ra, x = get_bits(x, 2)
@@ -391,11 +393,7 @@ if not hasattr(socket, 'inet_pton'):
     socket.inet_pton = inet_pton
 
 if os.name == 'nt':
-    import sys
-    if sys.version_info > (3,):
-        import winreg
-    else:
-        import _winreg as winreg
+    import sys, winreg
     def _nt_read_key(lm, key):
         regkey = winreg.OpenKey(lm, key)
         try:

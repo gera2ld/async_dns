@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # coding=utf-8
+'''
+Synchronous DNS resolver.
+'''
 import socket, random
 from . import utils, types
 
@@ -15,14 +18,7 @@ def raw_send(b, addr, timeout = 3.0):
     sock = socket.socket(af, socket.SOCK_DGRAM)
     sock.settimeout(timeout)
     sock.sendto(b, addr)
-    try:
-        while True:
-            data, addr = sock.recvfrom(512)    # max length of udp packs
-            if data.startswith(qid): break
-    except socket.error:
-        data = None
-        if sock: sock.close()
-    return data
+    return sock
 
 class Resolver:
     '''
@@ -43,26 +39,37 @@ class Resolver:
             self.hosts = utils.hosts
 
     def query(self, name, qtype = types.ANY, qclass = 1, recursive = 1, no_cache = False):
+        rec = utils.Record(utils.REQUEST, name = name, qtype = qtype, qclass = qclass)
         # query hosts
         if not no_cache:
             cached = list(self.hosts.query(name, qtype))
             if cached:
                 res = utils.DNSMessage(ra = recursive)
-                res.qd.append(utils.Record(utils.REQUEST, name = name, qtype = qtype))
+                res.qd.append(rec)
                 res.an.extend(cached)
                 return res
         # query remote server
         qid = random.randint(0, 65535)
-        qdata = utils.raw_pack(qid, name, qtype, qclass, recursive)
-        for i in self.nameservers:
-            data = raw_send(qdata, (i, 53), self.timeout)
-            if data: break
-        else:
-            return
-        ans = utils.raw_parse(data, qid)
-        if ans.r > 0:
-            raise DNSError(ans.r)
-        return ans
+        req = utils.dns_request(qid, recursive = recursive)
+        req.qd.append(rec)
+        qdata = req.pack()
+        for ns in self.nameservers:
+            try:
+                sock = raw_send(qdata, (ns, 53), self.timeout)
+            except socket.error:
+                pass
+            else:
+                try:
+                    data, addr = sock.recvfrom(512)    # max length of udp packs
+                    return utils.raw_parse(data, qid)
+                    length -= 1
+                except socket.error:
+                    break
+                except utils.DNSError:
+                    pass
+                finally:
+                    sock.close()
+                break
 
     def query_ip(self, name):
         if utils.ip_type(name) in self.expected_types:
