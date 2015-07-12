@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
-import socket, struct, io, time, os
+import socket, struct, io, time, os, random
 from . import types
 REQUEST = 0
 RESPONSE = 1
@@ -88,7 +88,10 @@ class Record:
         buf.write(struct.pack('!HH', self.qtype, self.qclass))
         if self.q == RESPONSE:
             ttl = self.ttl
-            if ttl < 0: ttl = MAXAGE
+            if ttl < 0:
+                ttl = MAXAGE
+            else:
+                ttl -= int(time.time())
             buf.write(struct.pack('!L', ttl))
             if self.qtype == types.A:
                 buf.write(pack_string(socket.inet_aton(self.data), '!H'))
