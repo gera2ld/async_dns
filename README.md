@@ -1,7 +1,7 @@
 pydns
 ===
 
-Requirements: Python 3.4.4+ (`asyncio` is required)
+Requirements: Python 3.4+ (`asyncio` is required)
 
 Usage
 ---
