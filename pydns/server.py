@@ -54,7 +54,8 @@ if __name__ == '__main__':
     logging.basicConfig(level = logging.INFO)
     parser = argparse.ArgumentParser(description = 'DNS server by Gerald.')
     parser.add_argument('-b', '--bind', default = ':', help = 'the address for the server to bind')
-    parser.add_argument('-c', help = 'the path of a hosts file')
+    parser.add_argument('--hosts', help = 'the path of a hosts file')
+    parser.add_argument('-p', '--proxy', default = '114.114.114.114,180.76.76.76,223.5.5.5,223.6.6.6', help = 'the proxy DNS servers')
     args = parser.parse_args()
     host, _, port = args.bind.rpartition(':')
     if not host: host = '0.0.0.0'
@@ -62,4 +63,5 @@ if __name__ == '__main__':
         port = int(port)
     else:
         port = 53
-    serve(host, port, hosts = args.c)
+    DNSServerProtocol.resolver.set_proxies(map(str.strip, args.proxy.split(',')))
+    serve(host, port, hosts = args.hosts)
