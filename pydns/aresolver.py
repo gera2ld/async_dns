@@ -199,9 +199,10 @@ class AsyncResolver:
                         logging.error(host)
                         logging.error(e)
                     else:
-                        for j in ns.an:
-                            if j.qtype in A_TYPES:
-                                nsip.append(j.data)
+                        if ns:
+                            for j in ns.an:
+                                if j.qtype in A_TYPES:
+                                    nsip.append(j.data)
             res.r = cres.r
         return n > 0
 
@@ -239,3 +240,6 @@ class AsyncProxyResolver(AsyncResolver):
 
     def get_nameservers(self, fdqn = None):
         return self.proxies
+
+    def set_proxies(self, proxies):
+        self.proxies = list(proxies)
