@@ -196,9 +196,10 @@ class AsyncResolver:
                         logging.error(host)
                         logging.error(e)
                     else:
-                        for j in ns.an:
-                            if j.qtype in A_TYPES:
-                                nsip.append(j.data)
+						if ns:
+							for j in ns.an:
+								if j.qtype in A_TYPES:
+									nsip.append(j.data)
             if cres.r > 0:
                 res.r = cres.r
         return n > 0
