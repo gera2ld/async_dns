@@ -21,6 +21,15 @@ class DNSError(Exception):
         Exception.__init__(self, message)
         self.code = code
 
+class SOA_RData:
+    def __init__(self, data, l):
+        i, self.mname = get_name(data, l)
+        i, self.rname = get_name(data, i)
+        self.serial, self.refresh, self.retry, self.expire, self.minimum = (
+                struct.unpack('!LLLLL', data[i: i + 20]))
+    def __repr__(self):
+        return '<%s>' % self.rname
+
 class Record:
     def __init__(self, q = RESPONSE, name = '', qtype = types.ANY, qclass = 1, ttl = 0, data = None):
         self.q = q
@@ -69,10 +78,7 @@ class Record:
                 # priority, weight, port, hostname
                 self.data = struct.unpack('!HHH', data[l: l + 6]) + (get_name(data, l + 6)[1], )
             elif self.qtype == types.SOA:
-                # mname, rname, serial, refresh, retry, expire, minimum
-                i, mname = get_name(data, l)
-                i, rname = get_name(data, i)
-                self.data = (mname, rname) + struct.unpack('!LLLLL', data[i: i + 20])
+                self.data = SOA_RData(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
                 self.data = get_name(data, l)[1]
             else:
@@ -133,9 +139,6 @@ class Hosts:
             item = self.data.setdefault(k, [])
             item.extend(v)
 
-    # #TTL is reserved for for pydns generated hosts file
-    rec_ttl = '#TTL'
-    len_ttl = len(rec_ttl)
     def parse_file(self, filename):
         filename = os.path.expanduser(filename)
         if not filename or not os.path.isfile(filename):
@@ -144,38 +147,29 @@ class Hosts:
             line = line.strip()
             if not line or line.startswith('#'): continue
             ip = None
-            ttl = -1    # persistent
             values = []
             # str.split will discard redundant white spaces
             for i in line.split():
                 if ip is None:
                     ip, tp = i, ip_type(i)
-                    if tp == 0: break
+                    if tp is None: break
                 elif i.startswith('#'):
-                    if i.startswith(rec_ttl):
-                        try:
-                            ttl = int(i[len_ttl:])
-                        except:
-                            pass
                     break
                 else:
                     values.append(i.lower())
             for i in values:
-                self.add_host(i, Record(name = i, qtype = tp, ttl = ttl, data = ip))
+                self.add_host(Record(name = i, qtype = tp, ttl = -1, data = ip))
 
-    def add_host(self, key, value):
-        key = key.lower()
+    def add_host(self, record):
+        if record.ttl == 0:
+            # RFC 1035: should not be cached while TTL=0
+            return
+        key = record.name.lower()
         item = self.data.get(key, [])
-        if isinstance(value, Record):
-            value = [value]
-        for v in value:
-            if v.ttl == 0:
-                # RFC 1035: should not be cached while TTL=0
-                continue
-            for i in item:
-                if i.update(v): break
-            else:
-                item.append(v)
+        for i in item:
+            if i.update(record): break
+        else:
+            item.append(record)
         if item:
             self.data[key] = item
         self.changed = True
