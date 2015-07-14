@@ -52,6 +52,7 @@ class DNSMemCache(utils.Hosts):
     def __init__(self, filename = None):
         super().__init__(filename)
         self.add_item('1.0.0.127.in-addr.arpa', types.PTR, self.name)
+        self.add_item('localhost', types.A, '127.0.0.1')
         for i in get_root_servers():
             self.add_item(*i)
 
@@ -192,26 +193,30 @@ class AsyncResolver:
                     try:
                         # XXX is NS always a hostname? need ip_version test?
                         ns = yield from self.query(host)
+                        assert ns
+                    except (AssertionError, asyncio.TimeoutError):
+                        pass
                     except Exception as e:
                         logging.error(host)
                         logging.error(e)
                     else:
-                        if ns:
-                            for j in ns.an:
-                                if j.qtype in A_TYPES:
-                                    nsip.append(j.data)
+                        for j in ns.an:
+                            if j.qtype in A_TYPES:
+                                nsip.append(j.data)
             if cres.r > 0:
                 res.r = cres.r
         return n > 0
 
     @asyncio.coroutine
     def query(self, fqdn, qtype = types.ANY):
+        logging.debug('query %s', fqdn)
         future = yield from self.query_future(fqdn, qtype)
         try:
             res = yield from asyncio.wait_for(future, 3.0)
-        except asyncio.TimeoutError:
-            return
-        return res
+        except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
+            pass
+        else:
+            return res
 
     @asyncio.coroutine
     def query_key(self, key):
