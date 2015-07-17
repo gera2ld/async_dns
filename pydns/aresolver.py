@@ -247,4 +247,4 @@ class AsyncProxyResolver(AsyncResolver):
         return self.proxies
 
     def set_proxies(self, proxies):
-        self.proxies = list(proxies)
+        self.proxies = deque(proxies)

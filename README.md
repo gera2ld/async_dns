@@ -17,5 +17,6 @@ print(resolver.query_ip('gerald.top'))
 * Start a DNS server (type in shell)
 ``` bash
 $ python3 -m pydns.server
+# or with arguments:
 $ python3 -m pydns.server -b 0.0.0.0:53 -c /etc/hosts
 ```
