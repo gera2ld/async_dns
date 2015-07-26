@@ -53,6 +53,7 @@ class DNSMemCache(utils.Hosts):
     def __init__(self, filename = None):
         super().__init__(filename)
         self.add_item('1.0.0.127.in-addr.arpa', types.PTR, self.name)
+        self.add_item('localhost', types.A, '127.0.0.1')
         for i in get_root_servers():
             self.add_item(*i)
 
@@ -196,6 +197,9 @@ class AsyncResolver:
                     host = i.data.mname if i.qtype == types.SOA else i.data
                     try:
                         ns = yield from self.query(host)
+                        assert ns
+                    except (AssertionError, asyncio.TimeoutError):
+                        pass
                     except Exception as e:
                         logging.error(host)
                         logging.error(e)
@@ -209,12 +213,14 @@ class AsyncResolver:
 
     @asyncio.coroutine
     def query(self, fqdn, qtype = types.ANY):
+        logging.debug('query %s', fqdn)
         future = yield from self.query_future(fqdn, qtype)
         try:
             res = yield from asyncio.wait_for(future, 3.0)
-        except asyncio.TimeoutError:
-            return
-        return res
+        except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
+            pass
+        else:
+            return res
 
     @asyncio.coroutine
     def query_key(self, key):
@@ -243,4 +249,4 @@ class AsyncProxyResolver(AsyncResolver):
         return self.proxies
 
     def set_proxies(self, proxies):
-        self.proxies = list(proxies)
+        self.proxies = deque(proxies)
