@@ -162,7 +162,9 @@ class AsyncResolver:
                     transport.close()
                     if not data.startswith(qid):
                         raise utils.DNSError(-1, 'Message id does not match!')
-                except asyncio.TimeoutError:
+                    cres = utils.raw_parse(data)
+                    assert cres.r != 2
+                except (asyncio.TimeoutError, AssertionError):
                     if isinstance(nsip, deque):
                         nsip.append(nsip.popleft())
                 except utils.DNSError:
@@ -171,7 +173,6 @@ class AsyncResolver:
                     break
             else:
                 break
-            cres = utils.raw_parse(data)
             for r in cres.an + cres.ns + cres.ar:
                 if r.ttl > 0 and r.qtype not in (types.SOA, types.MX):
                     self.cache.add_host(r)
