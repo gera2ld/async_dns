@@ -5,8 +5,7 @@ Asynchronous DNS client to query a queue of domains asynchronously.
 This is designed to improve performance of the server.
 '''
 import asyncio, os, logging
-from collections import deque
-from . import utils, types
+from . import utils, types, address
 
 A_TYPES = types.A, types.AAAA
 
@@ -126,17 +125,17 @@ class AsyncResolver:
             sub, _, fqdn = fqdn.partition('.')
             for rec in self.cache.query(fqdn, types.NS):
                 host = rec.data
-                if utils.ip_type(host) is None:
+                if address.Address(host, allow_domain=True).ip_type is None:
                     for r in self.cache.query(host, A_TYPES):
-                        yield r.data
+                        yield address.Address(r.data, 53)
                         empty = False
                 else:
-                    yield host
+                    yield address.Address(host, 53)
                     empty = False
 
     async def query_remote(self, res, fqdn, qtype):
         # look up from other DNS servers
-        nsip = self.get_nameservers(fqdn)
+        nameservers = address.NameServers(self.get_nameservers(fqdn))
         cname = [fqdn]
         req = utils.dns_request()
         n = 0
@@ -148,23 +147,22 @@ class AsyncResolver:
             del cname[:]
             qid = qdata[:2]
             loop = asyncio.get_event_loop()
-            for ip in tuple(nsip):
+            for addr in nameservers:
                 future = asyncio.Future()
                 try:
                     transport, protocol = await asyncio.wait_for(
-                        loop.create_datagram_endpoint(lambda : CallbackProtocol(future), remote_addr = (ip, 53)),
+                        loop.create_datagram_endpoint(lambda : CallbackProtocol(future), remote_addr = addr.to_addr()),
                         1.0
                     )
                     transport.sendto(qdata)
-                    data, addr = await asyncio.wait_for(future, 3.0)
+                    data, _addr = await asyncio.wait_for(future, 3.0)
                     transport.close()
                     if not data.startswith(qid):
                         raise utils.DNSError(-1, 'Message id does not match!')
                     cres = utils.raw_parse(data)
                     assert cres.r != 2
                 except (asyncio.TimeoutError, AssertionError):
-                    if isinstance(nsip, deque):
-                        nsip.append(nsip.popleft())
+                    nameservers.fail(addr)
                 except utils.DNSError:
                     pass
                 else:
@@ -188,8 +186,8 @@ class AsyncResolver:
                     n += 1
             if not self.recursive:
                 res.ar.extend(cres.ar)
-            nsip = [i.data for i in cres.ar if i.qtype in A_TYPES]
-            if not nsip:
+            nameservers = address.NameServers([i.data for i in cres.ar if i.qtype in A_TYPES])
+            if not nameservers:
                 for i in cres.ns:
                     host = i.data.mname if i.qtype == types.SOA else i.data
                     try:
@@ -204,7 +202,7 @@ class AsyncResolver:
                         if ns:
                             for j in ns.an:
                                 if j.qtype in A_TYPES:
-                                    nsip.append(j.data)
+                                    nameservers.add(j.data)
             res.r = cres.r
         return n > 0
 
@@ -237,10 +235,10 @@ class AsyncResolver:
             asyncio.ensure_future(self.query_key(key))
 
 class AsyncProxyResolver(AsyncResolver):
-    proxies = deque(['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6'])
+    proxies = address.NameServers(['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6'])
 
     def get_nameservers(self, fdqn = None):
         return self.proxies
 
     def set_proxies(self, proxies):
-        self.proxies = deque(proxies)
+        self.proxies = address.NameServers(proxies)

@@ -4,17 +4,17 @@
 Synchronous DNS resolver.
 '''
 import socket, random
-from . import utils, types
+from . import utils, types, address
 
 UDP = 'UDP'
 TCP = 'TCP'
 
 def request(data, addr, timeout = 3.0, protocol = UDP):
     qid = data[:2]
-    t = utils.ip_type(addr[0])
-    if t == types.A:
+    addr = address.Address(addr)
+    if addr.ip_type == types.A:
         af = socket.AF_INET
-    elif t == types.AAAA:
+    elif addr.ip_type == types.AAAA:
         af = socket.AF_INET6
     else:
         return
@@ -22,7 +22,7 @@ def request(data, addr, timeout = 3.0, protocol = UDP):
     sock = socket.socket(af, sock_type)
     sock.settimeout(timeout)
     try:
-        sock.connect(addr)
+        sock.connect(addr.to_addr())
         sock.send(data)
         data = sock.recv(2048)
     except socket.error:
@@ -72,7 +72,7 @@ class SyncResolver:
                     pass
 
     def query_ip(self, name):
-        if utils.ip_type(name) in self.expected_types:
+        if address.Address(name, allow_domain=True).ip_type in self.expected_types:
             return name
         for t in self.expected_types:
             nm = name
