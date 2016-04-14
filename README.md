@@ -15,10 +15,14 @@ Usage
 # Using a synchronous resolver
 $ python3 -m pydns.resolver www.google.com
 
-# Start a DNS Server
+# Query via TCP
+$ python3 -m pydns.resolver -n 127.0.0.1 -p TCP www.google.com
+
+# Start a DNS server
 $ python3 -m pydns.server
-# or with arguments:
-$ python3 -m pydns.server -b 0.0.0.0:53 --hosts /etc/hosts
+
+# Start a DNS server with arguments:
+$ python3 -m pydns.server -b :53 --hosts /etc/hosts
 ```
 
 Test
