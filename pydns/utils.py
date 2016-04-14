@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 import socket, struct, io, time, os, random
-from . import types
+from . import types, address
 REQUEST = 0
 RESPONSE = 1
 nameservers = []
@@ -157,19 +157,21 @@ class Hosts:
         for line in open(filename, 'r'):
             line = line.strip()
             if not line or line.startswith('#'): continue
-            ip = None
+            addr = None
             values = []
             # str.split will discard redundant white spaces
             for i in line.split():
-                if ip is None:
-                    ip, tp = i, ip_type(i)
-                    if tp is None: break
+                if addr is None:
+                    try:
+                        addr = address.Address(i, 53)
+                    except:
+                        break
                 elif i.startswith('#'):
                     break
                 else:
                     values.append(i.lower())
             for i in values:
-                self.add_host(Record(name = i, qtype = tp, ttl = -1, data = ip))
+                self.add_host(Record(name = i, qtype = addr.ip_type, ttl = -1, data = addr.hostname))
 
     def add_host(self, record):
         if record.ttl == 0:
@@ -228,30 +230,6 @@ class Hosts:
         except:
             qtype = qtype,
         return filter(lambda h: h.qtype in qtype, host)
-
-def ip_type(host):
-    try:
-        if ':' in host:
-            # IPv6
-            parts = host.split(':')
-            if '.' in parts[-1]:
-                # IPv4 nested
-                assert ip_type(parts.pop()) == types.A
-                assert 2 <= len(parts) <= 6
-            else:
-                assert 3 <= len(parts) <= 8
-            for part in parts:
-                assert not part or 0 < int(part, 16) < 0xffff
-            return types.AAAA
-        else:
-            # IPv4
-            parts = host.split('.')
-            assert len(parts) == 4
-            for part in parts:
-                assert 0 <= int(part) <= 0xff
-            return types.A
-    except:
-        pass
 
 def get_name(data, i):
     a = []
