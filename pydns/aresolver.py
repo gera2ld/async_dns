@@ -5,7 +5,7 @@ Asynchronous DNS client to query a queue of domains asynchronously.
 This is designed to improve performance of the server.
 '''
 import asyncio, os, logging
-from . import utils, types, address
+from . import utils, types, address, arequests
 
 A_TYPES = types.A, types.AAAA
 
@@ -35,18 +35,6 @@ def get_root_servers(fname = cachefile):
             data.append(next(it).rstrip('.'))   # data
             yield data
 
-class CallbackProtocol(asyncio.DatagramProtocol):
-    def __init__(self, future):
-        self.future = future
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def datagram_received(self, data, addr):
-        self.transport.close()
-        if not self.future.cancelled():
-            self.future.set_result((data, addr))
-
 class DNSMemCache(utils.Hosts):
     name = 'DNSMemD/Gerald'
     def __init__(self, filename = None):
@@ -62,11 +50,12 @@ class DNSMemCache(utils.Hosts):
 class AsyncResolver:
     recursive = 1
     rootdomains = ['.lan']
-    def __init__(self):
+    def __init__(self, protocol = utils.UDP):
         self.queue = asyncio.Queue()
         self.futures = {}
         self.lock = asyncio.Lock()
         self.cache = DNSMemCache()
+        self.protocol = protocol
         asyncio.ensure_future(self.loop())
 
     async def query_future(self, fqdn, qtype = types.ANY):
@@ -133,6 +122,16 @@ class AsyncResolver:
                     yield address.Address(host, 53)
                     empty = False
 
+    async def request(self, qdata, addr, timeout = 3.0, protocol = None):
+        if protocol is None:
+            protocol = self.protocol
+        if protocol == utils.UDP:
+            request = arequests.udp.request
+        elif protocol == utils.TCP:
+            request = arequests.tcp.request
+        data = await request(qdata, addr, timeout)
+        return data
+
     async def query_remote(self, res, fqdn, qtype):
         # look up from other DNS servers
         nameservers = address.NameServers(self.get_nameservers(fqdn))
@@ -146,17 +145,9 @@ class AsyncResolver:
             qdata = req.pack()
             del cname[:]
             qid = qdata[:2]
-            loop = asyncio.get_event_loop()
             for addr in nameservers:
-                future = asyncio.Future()
                 try:
-                    transport, protocol = await asyncio.wait_for(
-                        loop.create_datagram_endpoint(lambda : CallbackProtocol(future), remote_addr = addr.to_addr()),
-                        1.0
-                    )
-                    transport.sendto(qdata)
-                    data, _addr = await asyncio.wait_for(future, 3.0)
-                    transport.close()
+                    data = await self.request(qdata, addr)
                     if not data.startswith(qid):
                         raise utils.DNSError(-1, 'Message id does not match!')
                     cres = utils.raw_parse(data)
