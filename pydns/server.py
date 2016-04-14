@@ -3,11 +3,8 @@
 import asyncio, logging
 from . import utils, types, aresolver
 
-class DNSServerProtocol(asyncio.DatagramProtocol):
+class DNSMixIn:
     resolver = aresolver.AsyncProxyResolver()
-
-    def connection_made(self, transport):
-        self.transport = transport
 
     async def handle(self, data, addr):
         msg = utils.raw_parse(data)
@@ -16,7 +13,7 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             if res:
                 res.qid = msg.qid
                 data = res.pack()
-                self.transport.sendto(data, addr)
+                self.send_data(data, addr)
                 l = len(data)
                 #if l>512:
                     #print(res)
@@ -28,19 +25,42 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
             logging.info('%s %4s %s %d %d', addr[0], types.type_name(c.qtype), c.name, r, l)
             break   # only one request is supported
 
+class DNSDatagramProtocol(DNSMixIn, asyncio.DatagramProtocol):
+    def connection_made(self, transport):
+        self.transport = transport
+
     def datagram_received(self, data, addr):
         asyncio.ensure_future(self.handle(data, addr))
 
-def serve(host = '0.0.0.0', port = 53, protocolClass = DNSServerProtocol, hosts = None):
+    def send_data(self, data, addr):
+        self.transport.sendto(data, addr)
+
+class DNSProtocol(DNSMixIn, asyncio.Protocol):
+    def connection_made(self, transport):
+        self.transport = transport
+        self.addr = transport.get_extra_info('peername')
+
+    def data_received(self, data):
+        asyncio.ensure_future(self.handle(data, self.addr))
+
+    def send_data(self, data, addr):
+        self.transport.write(data)
+
+def serve(host = '0.0.0.0', port = 53, protocolClasses = (DNSProtocol, DNSDatagramProtocol), hosts = None):
     if hosts:
-        DNSServerProtocol.resolver.cache.parse_file(hosts)
+        DNSMixIn.resolver.cache.parse_file(hosts)
     loop = asyncio.get_event_loop()
-    listen = loop.create_datagram_endpoint(
-        protocolClass, local_addr = (host, port))
-    transport, protocol = loop.run_until_complete(listen)
     logging.info('DNS server v2 - by Gerald')
-    sock = transport.get_extra_info('socket')
-    logging.info('Serving DNS on %s, port %d', *(sock.getsockname()[:2]))
+    TCPProtocol, UDPProtocol = protocolClasses
+    if TCPProtocol:
+        listen = loop.create_server(TCPProtocol, host, port)
+        server = loop.run_until_complete(listen)
+        logging.info('Serving on %s, port %d, TCP', *(server.sockets[0].getsockname()[:2]))
+    if UDPProtocol:
+        listen = loop.create_datagram_endpoint(UDPProtocol, local_addr = (host, port))
+        transport, protocol = loop.run_until_complete(listen)
+        sock = transport.get_extra_info('socket')
+        logging.info('Serving on %s, port %d, UDP', *(sock.getsockname()[:2]))
     try:
         loop.run_forever()
     except KeyboardInterrupt:
@@ -62,5 +82,5 @@ if __name__ == '__main__':
         port = int(port)
     else:
         port = 53
-    DNSServerProtocol.resolver.set_proxies(map(str.strip, args.proxy.split(',')))
+    DNSMixIn.resolver.set_proxies(map(str.strip, args.proxy.split(',')))
     serve(host, port, hosts = args.hosts)
