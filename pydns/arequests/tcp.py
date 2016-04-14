@@ -4,6 +4,8 @@ import asyncio
 
 connections = {}
 
+class ConnectionError(Exception): pass
+
 class CallbackProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
@@ -48,18 +50,38 @@ class CallbackProtocol(asyncio.Protocol):
         if self.cached:
             self._close()
 
+async def connect(addr, timeout = 3.0):
+    loop = asyncio.get_event_loop()
+    transport, protocol = await asyncio.wait_for(
+        loop.create_connection(CallbackProtocol, host=addr.hostname, port=addr.port),
+        timeout
+    )
+    return protocol
+
 async def request(qdata, addr, timeout = 3.0):
     key = addr.to_str(53)
-    protocol = connections.get(key)
-    if protocol is None:
-        loop = asyncio.get_event_loop()
-        transport, protocol = await asyncio.wait_for(
-            loop.create_connection(CallbackProtocol, host=addr.hostname, port=addr.port),
-            1.0
-        )
-        connections[key] = protocol
+    queue = connections.get(key)
+    if queue is None:
+        queue = connections[key] = asyncio.Queue(maxsize=10)
+    try:
+        protocol = queue.get_nowait()
+        assert protocol.cached
+    except:
+        for retry in range(3):
+            try:
+                protocol = await connect(addr, timeout)
+            except:
+                pass
+            else:
+                break
+        else:
+            raise ConnectionError
         protocol.key = key
     future = asyncio.Future()
     protocol.write_data(future, qdata)
     data = await asyncio.wait_for(future, timeout)
+    try:
+        queue.put_nowait(protocol)
+    except:
+        pass
     return data
