@@ -6,10 +6,7 @@ Synchronous DNS resolver.
 import socket, random
 from . import utils, types, address
 
-UDP = 'UDP'
-TCP = 'TCP'
-
-def request(data, addr, timeout = 3.0, protocol = UDP):
+def request(data, addr, timeout = 3.0, protocol = utils.UDP):
     qid = data[:2]
     addr = address.Address(addr)
     if addr.ip_type == types.A:
@@ -18,7 +15,7 @@ def request(data, addr, timeout = 3.0, protocol = UDP):
         af = socket.AF_INET6
     else:
         return
-    sock_type = socket.SOCK_DGRAM if protocol is UDP else socket.SOCK_STREAM
+    sock_type = socket.SOCK_DGRAM if protocol is utils.UDP else socket.SOCK_STREAM
     sock = socket.socket(af, sock_type)
     sock.settimeout(timeout)
     try:
@@ -35,7 +32,7 @@ class SyncResolver:
     A synchronous DNS resolver.
     '''
     expected_types = types.AAAA, types.A
-    def __init__(self, nameservers = None, timeout = 3.0, hosts_file = None, protocol = UDP):
+    def __init__(self, nameservers = None, timeout = 3.0, hosts_file = None, protocol = utils.UDP):
         self.timeout = timeout
         self.protocol = protocol
         if nameservers:
@@ -107,7 +104,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description = 'DNS resolver')
     parser.add_argument('hostnames', nargs='+', help='the hostnames to query')
-    parser.add_argument('-p', '--protocol', default='UDP', help='the protocol to use to communicate with the DNS server, either UDP or TCP, default as UDP')
+    parser.add_argument('-p', '--protocol', default=utils.UDP, help='the protocol to use to communicate with the DNS server, either UDP or TCP, default as UDP')
     parser.add_argument('-n', '--nameservers', default=None, help='the name servers')
     args = parser.parse_args()
     nameservers = args.nameservers

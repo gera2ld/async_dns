@@ -4,9 +4,11 @@ import asyncio, logging
 from . import utils, types, aresolver
 
 class DNSMixIn:
-    resolver = aresolver.AsyncProxyResolver()
+    resolver = None
 
     async def handle(self, data, addr):
+        if self.resolver is None:
+            self.resolver = aresolver.AsyncProxyResolver()
         msg = utils.raw_parse(data)
         for c in msg.qd:
             res = await self.resolver.query(c.name, c.qtype)
@@ -46,12 +48,16 @@ class DNSProtocol(DNSMixIn, asyncio.Protocol):
     def send_data(self, data, addr):
         self.transport.write(data)
 
-def serve(host = '0.0.0.0', port = 53, protocolClasses = (DNSProtocol, DNSDatagramProtocol), hosts = None):
-    if hosts:
+def serve(host = '0.0.0.0', port = 53, protocol_classes = (DNSProtocol, DNSDatagramProtocol),
+        hosts = None, resolve_protocol = utils.UDP, proxies = None):
+    DNSMixIn.resolver = aresolver.AsyncProxyResolver(resolve_protocol)
+    if hosts is not None:
         DNSMixIn.resolver.cache.parse_file(hosts)
+    if proxies is not None:
+        DNSMixIn.resolver.set_proxies(proxies)
     loop = asyncio.get_event_loop()
     logging.info('DNS server v2 - by Gerald')
-    TCPProtocol, UDPProtocol = protocolClasses
+    TCPProtocol, UDPProtocol = protocol_classes
     if TCPProtocol:
         listen = loop.create_server(TCPProtocol, host, port)
         server = loop.run_until_complete(listen)
@@ -75,6 +81,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--bind', default = ':', help = 'the address for the server to bind')
     parser.add_argument('--hosts', help = 'the path of a hosts file')
     parser.add_argument('-p', '--proxy', default = '114.114.114.114,180.76.76.76,223.5.5.5,223.6.6.6', help = 'the proxy DNS servers')
+    parser.add_argument('-P', '--protocol', default='UDP', help = 'the default protocol to use to query remote servers')
     args = parser.parse_args()
     host, _, port = args.bind.rpartition(':')
     if not host: host = '0.0.0.0'
@@ -82,5 +89,5 @@ if __name__ == '__main__':
         port = int(port)
     else:
         port = 53
-    DNSMixIn.resolver.set_proxies(map(str.strip, args.proxy.split(',')))
-    serve(host, port, hosts = args.hosts)
+    serve(host, port, hosts = args.hosts, resolve_protocol = args.protocol,
+            proxies = map(str.strip, args.proxy.split(',')))

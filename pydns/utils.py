@@ -8,6 +8,9 @@ nameservers = []
 hosts = None
 MAXAGE = 3600000
 
+UDP = 'UDP'
+TCP = 'TCP'
+
 class DNSError(Exception):
     errors = {
         1: 'Format error: bad request',

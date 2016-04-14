@@ -62,7 +62,7 @@ class Address:
             assert not part or 0 < int(part, 16) < 0xffff
         return hostname, port
 
-    def to_string(self, default_port = 0):
+    def to_str(self, default_port = 0):
         if default_port is None or self.port == default_port:
             return self.hostname
         if self.ip_type is types.A:
