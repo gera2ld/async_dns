@@ -18,15 +18,21 @@ class DNSError(Exception):
     }
     def __init__(self, code, message = None):
         message = self.errors.get(code, message) or 'Unknown reply code: %d' % code
-        Exception.__init__(self, message)
+        super().__init__(message)
         self.code = code
 
 class SOA_RData:
     def __init__(self, data, l):
         i, self.mname = get_name(data, l)
         i, self.rname = get_name(data, i)
-        self.serial, self.refresh, self.retry, self.expire, self.minimum = (
-                struct.unpack('!LLLLL', data[i: i + 20]))
+        (
+            self.serial,
+            self.refresh,
+            self.retry,
+            self.expire,
+            self.minimum,
+        ) = struct.unpack('!LLLLL', data[i: i + 20])
+
     def __repr__(self):
         return '<%s>' % self.rname
 
@@ -40,11 +46,13 @@ class Record:
             self.ttl = ttl    # 0 means item should not be cached
             self.data = data
             self.timestamp = int(time.time())
+
     def __repr__(self):
         if self.q == REQUEST:
             return str((self.name, types.type_name(self.qtype)))
         else:
             return str((self.name, types.type_name(self.qtype), self.data, self.ttl))
+
     def copy(self, **kw):
         return Record(
             q = kw.get('q', self.q),
@@ -54,11 +62,13 @@ class Record:
             ttl = kw.get('ttl', self.ttl),
             data = kw.get('data', self.data)
         )
+
     def update(self, other):
         if (self.name, self.qtype, self.data) == (other.name, other.qtype, other.data):
             if self.ttl and other.ttl > self.ttl:
                 self.ttl = other.ttl
             return self
+
     def parse(self, data, l):
         l, self.name = get_name(data, l)
         self.qtype, self.qclass = struct.unpack('!HH', data[l: l + 4])
@@ -85,6 +95,7 @@ class Record:
                 self.data = data[l: l + dl]
             l += dl
         return l
+
     def pack(self, buf = None, names = {}):
         if buf is None:
             buf = io.BytesIO()
@@ -264,6 +275,7 @@ def pack_string(s, b = 'B'):
         s = s.encode()
     l = len(s)
     return struct.pack('%s%ds' % (b, l), l, s)
+
 def pack_name(name, buf = None, names = {}, offset = 0):
     parts = name.split('.')
     if buf is None:
@@ -295,14 +307,19 @@ class DNSMessage:
         self.an = []
         self.ns = []
         self.ar = []
+
     def __getitem__(self, i):
         return self.an[i]
+
     def __iter__(self):
         return iter(self.an)
+
     def __repr__(self):
         return 'QD: %s\nAN: %s\nNS: %s\nAR: %s' % (self.qd, self.an, self.ns, self.ar)
+
     def pack(self):
         z = 0
+        # TODO update self.tc
         buf = io.BytesIO()
         names = {}
         buf.write(struct.pack('!HHHHHH', self.qid,
@@ -314,6 +331,7 @@ class DNSMessage:
 
 def get_bits(x, b):
     return x % b, x // b
+
 def parse_entry(qr, data, l, n, res):
     for i in range(n):
         r = Record(qr)
@@ -321,11 +339,13 @@ def parse_entry(qr, data, l, n, res):
         if res is not None:
             res.append(r)
     return l
+
 def dns_request(qid = None, recursive = 1):
     if qid is None:
         qid = random.randint(0, 65535)
     req = DNSMessage(REQUEST, qid, rd = recursive)
     return req
+
 def raw_parse(data, qid = None):
     _qid, x, qd, an, ns, ar = struct.unpack('!HHHHHH', data[:12])
     if qid is not None and qid != _qid:
@@ -345,54 +365,53 @@ def raw_parse(data, qid = None):
     l = parse_entry(RESPONSE, data, l, ar, ans.ar)
     return ans
 
-# Support Python < 3.4
-def inet_ntop(fa, ip):
-    if fa == socket.AF_INET:
-        return socket.inet_ntoa(ip)
-    elif fa == socket.AF_INET6:
-        z = 0
-        a = []
-        for i in struct.unpack('!HHHHHHHH', ip):
-            if i == 0:
-                if z < 2:
-                    z += 1
-                    if z == 2: a[-1] = ''
-            elif z == 2:
-                z = 3
-            elif z < 2:
-                z = 0
-            if z != 2:
-                a.append('%x' % i)
-        if not a[-1]:
-            a.append('')
-        if not a[0]:
-            a.insert(0,'')
-        return ':'.join(a)
-
-def inet_pton(fa, ip):
-    if fa == socket.AF_INET:
-        return socket.inet_aton(ip)
-    elif fa == socket.AF_INET6:
-        ip_parts = ip.split(':')
-        if ip_parts[-1].find('.') > 0:
-            # IPv4 nested IPv6
-            ipv4 = [int(i) for i in ip_parts.pop().split('.')]
-            ip_parts.append(ipv4[0] * 256 + ipv4[1])
-            ip_parts.append(ipv4[2] * 256 + ipv4[3])
-        if not ip_parts[0]: ip_parts.pop(0)
-        if not ip_parts[-1]: ip_parts.pop()
-        l = len(ip_parts)
-        b = []
-        for i in ip_parts:
-            if isinstance(i, int): b.append(i)
-            elif i: b.append(int(i, 16))
-            else: b.extend([0] * (9 - l))
-        return struct.pack('!HHHHHHHH',*b)
-
-if not hasattr(socket, 'inet_ntop'):
-    socket.inet_ntop = inet_ntop
-if not hasattr(socket, 'inet_pton'):
-    socket.inet_pton = inet_pton
+# Shim for Python 3.4-
+#
+# def inet_ntop(fa, ip):
+#     if fa == socket.AF_INET:
+#         return socket.inet_ntoa(ip)
+#     elif fa == socket.AF_INET6:
+#         z = 0
+#         a = []
+#         for i in struct.unpack('!HHHHHHHH', ip):
+#             if i == 0:
+#                 if z < 2:
+#                     z += 1
+#                     if z == 2: a[-1] = ''
+#             elif z == 2:
+#                 z = 3
+#             elif z < 2:
+#                 z = 0
+#             if z != 2:
+#                 a.append('%x' % i)
+#         if not a[-1]:
+#             a.append('')
+#         if not a[0]:
+#             a.insert(0,'')
+#         return ':'.join(a)
+#
+# def inet_pton(fa, ip):
+#     if fa == socket.AF_INET:
+#         return socket.inet_aton(ip)
+#     elif fa == socket.AF_INET6:
+#         ip_parts = ip.split(':')
+#         if ip_parts[-1].find('.') > 0:
+#             # IPv4 nested IPv6
+#             ipv4 = [int(i) for i in ip_parts.pop().split('.')]
+#             ip_parts.append(ipv4[0] * 256 + ipv4[1])
+#             ip_parts.append(ipv4[2] * 256 + ipv4[3])
+#         if not ip_parts[0]: ip_parts.pop(0)
+#         if not ip_parts[-1]: ip_parts.pop()
+#         l = len(ip_parts)
+#         b = []
+#         for i in ip_parts:
+#             if isinstance(i, int): b.append(i)
+#             elif i: b.append(int(i, 16))
+#             else: b.extend([0] * (9 - l))
+#         return struct.pack('!HHHHHHHH',*b)
+#
+# if not hasattr(socket, 'inet_ntop'): socket.inet_ntop = inet_ntop
+# if not hasattr(socket, 'inet_pton'): socket.inet_pton = inet_pton
 
 if os.name == 'nt':
     import sys, winreg
@@ -434,6 +453,7 @@ if os.name == 'nt':
                 break
         interfaces.Close()
         lm.Close()
+
 elif os.name == 'posix':
     def get_servers(filename = '/etc/resolv.conf'):
         for line in open(filename, 'r'):

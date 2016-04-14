@@ -6,8 +6,11 @@ Synchronous DNS resolver.
 import socket, random
 from . import utils, types
 
-def raw_send(b, addr, timeout = 3.0):
-    qid = b[:2]
+UDP = 'UDP'
+TCP = 'TCP'
+
+def request(data, addr, timeout = 3.0, protocol = UDP):
+    qid = data[:2]
     t = utils.ip_type(addr[0])
     if t == types.A:
         af = socket.AF_INET
@@ -15,24 +18,31 @@ def raw_send(b, addr, timeout = 3.0):
         af = socket.AF_INET6
     else:
         return
-    sock = socket.socket(af, socket.SOCK_DGRAM)
+    sock_type = socket.SOCK_DGRAM if protocol is UDP else socket.SOCK_STREAM
+    sock = socket.socket(af, sock_type)
     sock.settimeout(timeout)
-    sock.sendto(b, addr)
-    return sock
+    try:
+        sock.connect(addr)
+        sock.send(data)
+        data = sock.recv(2048)
+    except socket.error:
+        pass
+    else:
+        return data
 
 class SyncResolver:
     '''
     A synchronous DNS resolver.
     '''
     expected_types = types.AAAA, types.A
-    def __init__(self, nameservers = None, timeout = 3.0, hosts_file = None):
+    def __init__(self, nameservers = None, timeout = 3.0, hosts_file = None, protocol = UDP):
+        self.timeout = timeout
+        self.protocol = protocol
         if nameservers:
             # Resolve nameservers using default DNS
-            from . import client
-            self.nameservers = list(map(client.query_ip, nameservers))
+            self.nameservers = list(map(_resolver.query_ip, nameservers))
         else:
             self.nameservers = list(utils.nameservers)
-        self.timeout = timeout
         if hosts_file:
             self.hosts = Hosts(hosts_file)
         else:
@@ -54,22 +64,12 @@ class SyncResolver:
         req.qd.append(rec)
         qdata = req.pack()
         for ns in self.nameservers:
-            try:
-                sock = raw_send(qdata, (ns, 53), self.timeout)
-            except socket.error:
-                pass
-            else:
+            data = request(qdata, (ns, 53), self.timeout, self.protocol)
+            if data is not None:
                 try:
-                    data, addr = sock.recvfrom(512)    # max length of udp packs
                     return utils.raw_parse(data, qid)
-                    length -= 1
-                except socket.error:
-                    break
                 except utils.DNSError:
                     pass
-                finally:
-                    sock.close()
-                break
 
     def query_ip(self, name):
         if utils.ip_type(name) in self.expected_types:
@@ -97,10 +97,22 @@ class SyncResolver:
                     if a is None: a = c
                 if a: nm = a.data
                 else: break
-        return last
+        # return last
 
-resolver = SyncResolver()
-def query(*k, **kw):
-    return resolver.query(*k, **kw)
-def query_ip(*k, **kw):
-    return resolver.query_ip(*k, **kw)
+_resolver = SyncResolver()
+query = _resolver.query
+query_ip = _resolver.query_ip
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description = 'DNS resolver')
+    parser.add_argument('hostnames', nargs='+', help='the hostnames to query')
+    parser.add_argument('-p', '--protocol', default='UDP', help='the protocol to use to communicate with the DNS server, either UDP or TCP, default as UDP')
+    parser.add_argument('-n', '--nameservers', default=None, help='the name servers')
+    args = parser.parse_args()
+    nameservers = args.nameservers
+    if nameservers: nameservers = nameservers.split(',')
+    resolver = SyncResolver(nameservers=nameservers, protocol=args.protocol)
+    for hostname in args.hostnames:
+        ip = resolver.query_ip(hostname)
+        print(ip)
