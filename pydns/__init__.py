@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
-import os, asyncio
-# Compatible with Python 3.4.3-
-if not hasattr(asyncio, 'ensure_future'):
-	asyncio.ensure_future = asyncio.async
-
+import os
 from . import utils
 
 try:

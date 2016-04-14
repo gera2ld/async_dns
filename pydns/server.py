@@ -9,11 +9,10 @@ class DNSServerProtocol(asyncio.DatagramProtocol):
     def connection_made(self, transport):
         self.transport = transport
 
-    @asyncio.coroutine
-    def handle(self, data, addr):
+    async def handle(self, data, addr):
         msg = utils.raw_parse(data)
         for c in msg.qd:
-            res = yield from self.resolver.query(c.name, c.qtype)
+            res = await self.resolver.query(c.name, c.qtype)
             if res:
                 res.qid = msg.qid
                 data = res.pack()
@@ -50,7 +49,7 @@ def serve(host = '0.0.0.0', port = 53, protocolClass = DNSServerProtocol, hosts 
     loop.close()
 
 if __name__ == '__main__':
-    import argparse, sys
+    import argparse
     logging.basicConfig(level = logging.INFO)
     parser = argparse.ArgumentParser(description = 'DNS server by Gerald.')
     parser.add_argument('-b', '--bind', default = ':', help = 'the address for the server to bind')

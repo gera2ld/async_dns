@@ -70,18 +70,16 @@ class AsyncResolver:
         self.cache = DNSMemCache()
         asyncio.ensure_future(self.loop())
 
-    @asyncio.coroutine
-    def query_future(self, fqdn, qtype = types.ANY):
+    async def query_future(self, fqdn, qtype = types.ANY):
         key = fqdn, qtype
-        with (yield from self.lock):
+        with (await self.lock):
             future = self.futures.get(key)
             if future is None:
                 future = self.futures[key] = asyncio.Future()
-                yield from self.queue.put(key)
+                await self.queue.put(key)
         return future
 
-    @asyncio.coroutine
-    def query_cache(self, res, fqdn, qtype):
+    async def query_cache(self, res, fqdn, qtype):
         # cached CNAME
         cname = list(self.cache.query(fqdn, types.CNAME))
         if cname:
@@ -89,7 +87,7 @@ class AsyncResolver:
             if not self.recursive or qtype == types.CNAME:
                 return True
             for rec in cname:
-                cres = yield from self.query(rec.data, qtype)
+                cres = await self.query(rec.data, qtype)
                 if cres is None or cres.r > 0: continue
                 res.an.extend(cres.an)
                 res.ns = cres.ns
@@ -136,8 +134,7 @@ class AsyncResolver:
                     yield host
                     empty = False
 
-    @asyncio.coroutine
-    def query_remote(self, res, fqdn, qtype):
+    async def query_remote(self, res, fqdn, qtype):
         # look up from other DNS servers
         nsip = self.get_nameservers(fqdn)
         cname = [fqdn]
@@ -154,12 +151,12 @@ class AsyncResolver:
             for ip in tuple(nsip):
                 future = asyncio.Future()
                 try:
-                    transport, protocol = yield from asyncio.wait_for(
+                    transport, protocol = await asyncio.wait_for(
                         loop.create_datagram_endpoint(lambda : CallbackProtocol(future), remote_addr = (ip, 53)),
                         1.0
                     )
                     transport.sendto(qdata)
-                    data, addr = yield from asyncio.wait_for(future, 3.0)
+                    data, addr = await asyncio.wait_for(future, 3.0)
                     transport.close()
                     if not data.startswith(qid):
                         raise utils.DNSError(-1, 'Message id does not match!')
@@ -196,7 +193,7 @@ class AsyncResolver:
                 for i in cres.ns:
                     host = i.data.mname if i.qtype == types.SOA else i.data
                     try:
-                        ns = yield from self.query(host)
+                        ns = await self.query(host)
                         assert ns
                     except (AssertionError, asyncio.TimeoutError):
                         pass
@@ -211,35 +208,32 @@ class AsyncResolver:
             res.r = cres.r
         return n > 0
 
-    @asyncio.coroutine
-    def query(self, fqdn, qtype = types.ANY):
+    async def query(self, fqdn, qtype = types.ANY):
         logging.debug('query %s', fqdn)
-        future = yield from self.query_future(fqdn, qtype)
+        future = await self.query_future(fqdn, qtype)
         try:
-            res = yield from asyncio.wait_for(future, 3.0)
+            res = await asyncio.wait_for(future, 3.0)
         except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
             pass
         else:
             return res
 
-    @asyncio.coroutine
-    def query_key(self, key):
+    async def query_key(self, key):
         fqdn, qtype = key
         res = utils.DNSMessage(ra = self.recursive)
         res.qd.append(utils.Record(utils.REQUEST, name = fqdn, qtype = qtype))
         future = self.futures[key]
-        ret = (yield from self.query_cache(res, fqdn, qtype)) or (yield from self.query_remote(res, fqdn, qtype))
+        ret = (await self.query_cache(res, fqdn, qtype)) or (await self.query_remote(res, fqdn, qtype))
         if not ret and not res.r:
             res.r = 2
-        with (yield from self.lock):
+        with (await self.lock):
             self.futures.pop(key)
         if not future.cancelled():
             future.set_result(res)
 
-    @asyncio.coroutine
-    def loop(self):
+    async def loop(self):
         while True:
-            key = yield from self.queue.get()
+            key = await self.queue.get()
             asyncio.ensure_future(self.query_key(key))
 
 class AsyncProxyResolver(AsyncResolver):
