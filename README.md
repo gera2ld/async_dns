@@ -18,11 +18,11 @@ $ python3 -m pydns.resolver www.google.com
 # Query via TCP
 $ python3 -m pydns.resolver -n 127.0.0.1 -p TCP www.google.com
 
-# Start a DNS server
-$ python3 -m pydns.server
+# Start a DNS server on :53 via TCP
+$ python3 -m pydns.server -b :53 -p TCP --hosts /etc/hosts
 
-# Start a DNS server with arguments:
-$ python3 -m pydns.server -b :53 --hosts /etc/hosts
+# Start a DNS server over TCP proxy
+$ python3 -m pydns.server -P 8.8.8.8 -p TCP
 ```
 
 Test
