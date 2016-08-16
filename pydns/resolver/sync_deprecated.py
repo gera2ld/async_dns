@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # coding=utf-8
 '''
-Synchronous DNS resolver.
+Synchronous DNS resolver
+DEPRECATED in favor of AsyncProxyResolver.
 '''
 import socket, random
 from . import utils, types, address
