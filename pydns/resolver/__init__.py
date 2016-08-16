@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # coding=utf-8
 '''
-Asynchronous DNS client to query a queue of domains asynchronously.
+Asynchronous DNS client
 This is designed to improve performance of the server.
 '''
-import asyncio, os, logging
-from . import utils, types, address, arequests
+import asyncio, os
+from .. import utils, types, address, logger
+from . import tcp, udp
 
 A_TYPES = types.A, types.AAAA
 
@@ -13,13 +14,14 @@ cachefile = os.path.expanduser('~/.gerald/named.cache.txt')
 def get_name_cache(url = 'ftp://rs.internic.net/domain/named.cache',
         fname = cachefile):
     from urllib import request
-    logging.info('Fetching named.cache...')
+    logger.info('Fetching named.cache...')
     try:
         r = request.urlopen(url)
     except:
-        logging.warning('Error fetching named.cache')
+        logger.warning('Error fetching named.cache')
     else:
         open(fname, 'wb').write(r.read())
+
 def get_root_servers(fname = cachefile):
     if not os.path.isfile(fname):
         os.makedirs(os.path.dirname(fname), exist_ok = True)
@@ -51,21 +53,9 @@ class AsyncResolver:
     recursive = 1
     rootdomains = ['.lan']
     def __init__(self, protocol = utils.UDP):
-        self.queue = asyncio.Queue()
         self.futures = {}
-        self.lock = asyncio.Lock()
         self.cache = DNSMemCache()
-        self.protocol = protocol
-        asyncio.ensure_future(self.loop())
-
-    async def query_future(self, fqdn, qtype = types.ANY):
-        key = fqdn, qtype
-        with (await self.lock):
-            future = self.futures.get(key)
-            if future is None:
-                future = self.futures[key] = asyncio.Future()
-                await self.queue.put(key)
-        return future
+        self.protocol = utils.DNSProtocol.get(protocol)
 
     async def query_cache(self, res, fqdn, qtype):
         # cached CNAME
@@ -125,10 +115,10 @@ class AsyncResolver:
     async def request(self, qdata, addr, timeout = 3.0, protocol = None):
         if protocol is None:
             protocol = self.protocol
-        if protocol == utils.UDP:
-            request = arequests.udp.request
-        elif protocol == utils.TCP:
-            request = arequests.tcp.request
+        if protocol is utils.TCP:
+            request = tcp.request
+        else:
+            request = udp.request
         data = await request(qdata, addr, timeout)
         return data
 
@@ -187,8 +177,8 @@ class AsyncResolver:
                     except (AssertionError, asyncio.TimeoutError):
                         pass
                     except Exception as e:
-                        logging.error(host)
-                        logging.error(e)
+                        logger.error(host)
+                        logger.error(e)
                     else:
                         if ns:
                             for j in ns.an:
@@ -198,8 +188,11 @@ class AsyncResolver:
         return n > 0
 
     async def query(self, fqdn, qtype = types.ANY):
-        logging.debug('query %s', fqdn)
-        future = await self.query_future(fqdn, qtype)
+        key = fqdn, qtype
+        future = self.futures.get(key)
+        if future is None:
+            future = self.futures[key] = asyncio.Future()
+            asyncio.ensure_future(self.do_query(key))
         try:
             res = await asyncio.wait_for(future, 3.0)
         except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
@@ -207,7 +200,7 @@ class AsyncResolver:
         else:
             return res
 
-    async def query_key(self, key):
+    async def do_query(self, key):
         fqdn, qtype = key
         res = utils.DNSMessage(ra = self.recursive)
         res.qd.append(utils.Record(utils.REQUEST, name = fqdn, qtype = qtype))
@@ -215,15 +208,9 @@ class AsyncResolver:
         ret = (await self.query_cache(res, fqdn, qtype)) or (await self.query_remote(res, fqdn, qtype))
         if not ret and not res.r:
             res.r = 2
-        with (await self.lock):
-            self.futures.pop(key)
+        self.futures.pop(key)
         if not future.cancelled():
             future.set_result(res)
-
-    async def loop(self):
-        while True:
-            key = await self.queue.get()
-            asyncio.ensure_future(self.query_key(key))
 
 class AsyncProxyResolver(AsyncResolver):
     proxies = address.NameServers(['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6'])

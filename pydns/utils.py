@@ -8,8 +8,24 @@ nameservers = []
 hosts = None
 MAXAGE = 3600000
 
-UDP = 'UDP'
-TCP = 'TCP'
+class DNSProtocol:
+    protocols = {}
+
+    def __init__(self, name):
+        name = name.lower()
+        self.protocol = name
+        self.protocols[name] = self
+
+    @classmethod
+    def get(cls, name):
+        if isinstance(name, cls):
+            return name
+        if isinstance(name, str):
+            name = name.lower()
+        return cls.protocols.get(name, UDP)
+
+UDP = DNSProtocol('udp')
+TCP = DNSProtocol('tcp')
 
 class DNSError(Exception):
     errors = {
@@ -83,7 +99,7 @@ class Record:
             if self.qtype == types.A:
                 self.data = socket.inet_ntoa(data[l: l + dl])
             elif self.qtype == types.AAAA:
-                self.data = inet_ntop(socket.AF_INET6, data[l: l + dl])
+                self.data = socket.inet_ntop(socket.AF_INET6, data[l: l + dl])
             elif self.qtype == types.MX:
                 # priority, hostname
                 self.data = struct.unpack('!H', data[l: l + 2]) + (get_name(data, l + 2)[1], )

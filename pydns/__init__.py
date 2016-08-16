@@ -2,6 +2,7 @@
 # coding=utf-8
 import os
 from . import utils
+from .logger import logger
 
 try:
     utils.get_servers()
