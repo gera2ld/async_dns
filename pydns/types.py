@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
+
 TYPES = {
     0: 'NONE',
     1: 'A',
@@ -14,6 +15,3 @@ TYPES = {
 }
 MAP_TYPES = dict(map(lambda item: (item[1], item[0]), TYPES.items()))
 globals().update(MAP_TYPES)
-
-def type_name(code):
-    return TYPES.get(code, str(code))
