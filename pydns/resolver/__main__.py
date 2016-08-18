@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # coding=utf-8
 import argparse, asyncio
-from .. import types, address, utils
+from .. import types, address
+from .. import *
 from . import AsyncProxyResolver
 
 def parse_args():
@@ -17,9 +18,9 @@ async def resolve_hostname(resolver, hostname):
     if addr.ip_type is None:
         return await resolver.query(hostname, types.A)
     else:
-        res = utils.DNSMessage()
-        res.qd.append(utils.Record(utils.REQUEST, name=hostname, qtype=addr.ip_type))
-        res.an.append(utils.Record(qtype=addr.ip_type, data=hostname))
+        res = DNSMessage()
+        res.qd.append(Record(REQUEST, name=hostname, qtype=addr.ip_type))
+        res.an.append(Record(qtype=addr.ip_type, data=hostname))
         return res
 
 def resolve_hostnames(args):

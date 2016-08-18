@@ -36,6 +36,9 @@ class Address:
     def __eq__(self, other):
         return self.hostname == other.hostname and self.port == other.port
 
+    def __repr__(self):
+        return self.to_str()
+
     def try_parse_ipv4(self, host, port = None):
         hostname, _, _port = host.partition(':')
         if _: port = int(_port)

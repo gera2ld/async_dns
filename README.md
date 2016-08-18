@@ -28,5 +28,5 @@ $ python3 -m pydns.server -P 8.8.8.8 -p tcp
 Test
 ---
 ``` sh
-$ python3 -m test
+$ python3 -m unittest
 ```

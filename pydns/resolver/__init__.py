@@ -5,57 +5,25 @@ Asynchronous DNS client
 This is designed to improve performance of the server.
 '''
 import asyncio, os
-from .. import utils, types, address, logger
-from . import tcp, udp
+from .. import types, address
+from .. import *
+from ..logger import logger
+from . import tcp, udp, cache
 
 A_TYPES = types.A, types.AAAA
-
-cachefile = os.path.expanduser('~/.gerald/named.cache.txt')
-def get_name_cache(url = 'ftp://rs.internic.net/domain/named.cache',
-        fname = cachefile):
-    from urllib import request
-    logger.info('Fetching named.cache...')
-    try:
-        r = request.urlopen(url)
-    except:
-        logger.warning('Error fetching named.cache')
-    else:
-        open(fname, 'wb').write(r.read())
-
-def get_root_servers(fname = cachefile):
-    if not os.path.isfile(fname):
-        os.makedirs(os.path.dirname(fname), exist_ok = True)
-        get_name_cache(fname = fname)
-    # in case failed fetching named.cache
-    if os.path.isfile(fname):
-        for line in open(fname, 'r'):
-            if line.startswith(';'): continue
-            it = iter(filter(None, line.split()))
-            data = [next(it).rstrip('.')]   # name
-            expires = next(it)  # ignored
-            data.append(types.MAP_TYPES.get(next(it), 0))   # qtype
-            data.append(next(it).rstrip('.'))   # data
-            yield data
-
-class DNSMemCache(utils.Hosts):
-    name = 'DNSMemD/Gerald'
-    def __init__(self, filename = None):
-        super().__init__(filename)
-        self.add_item('1.0.0.127.in-addr.arpa', types.PTR, self.name)
-        self.add_item('localhost', types.A, '127.0.0.1')
-        for i in get_root_servers():
-            self.add_item(*i)
-
-    def add_item(self, key, qtype, data):
-        self.add_host(utils.Record(name = key, data = data, qtype = qtype, ttl = -1))
 
 class AsyncResolver:
     recursive = 1
     rootdomains = ['.lan']
-    def __init__(self, protocol = utils.UDP):
+
+    def __init__(self, protocol = UDP):
         self.futures = {}
-        self.cache = DNSMemCache()
-        self.protocol = utils.DNSProtocol.get(protocol)
+        self.cache = cache.DNSMemCache()
+        self.protocol = InternetProtocol.get(protocol)
+        self.initialize()
+
+    def initialize(self):
+        self.cache.add_roots()
 
     async def query_cache(self, res, fqdn, qtype):
         # cached CNAME
@@ -93,8 +61,8 @@ class AsyncResolver:
                 n = 1
             # can only be added for domains that are resolved by this server
             res.aa = 1  # Authoritative answer
-            res.ns.append(utils.Record(name = fqdn, qtype = types.NS, data = 'localhost', ttl = -1))
-            res.ar.append(utils.Record(name = fqdn, qtype = types.A, data = '127.0.0.1', ttl = -1))
+            res.ns.append(Record(name = fqdn, qtype = types.NS, data = 'localhost', ttl = -1))
+            res.ar.append(Record(name = fqdn, qtype = types.A, data = '127.0.0.1', ttl = -1))
         if n:
             return True
 
@@ -115,7 +83,7 @@ class AsyncResolver:
     async def request(self, qdata, addr, timeout = 3.0, protocol = None):
         if protocol is None:
             protocol = self.protocol
-        if protocol is utils.TCP:
+        if protocol is TCP:
             request = tcp.request
         else:
             request = udp.request
@@ -126,12 +94,12 @@ class AsyncResolver:
         # look up from other DNS servers
         nameservers = address.NameServers(self.get_nameservers(fqdn))
         cname = [fqdn]
-        req = utils.dns_request()
+        req = DNSMessage.request()
         n = 0
         while not n:
             if not cname: break
             # XXX it seems that only one qd is supported by most NS
-            req.qd = [utils.Record(utils.REQUEST, cname[0], qtype)]
+            req.qd = [Record(REQUEST, cname[0], qtype)]
             qdata = req.pack()
             del cname[:]
             qid = qdata[:2]
@@ -139,12 +107,12 @@ class AsyncResolver:
                 try:
                     data = await self.request(qdata, addr)
                     if not data.startswith(qid):
-                        raise utils.DNSError(-1, 'Message id does not match!')
-                    cres = utils.raw_parse(data)
+                        raise DNSError(-1, 'Message id does not match!')
+                    cres = DNSMessage.parse(data)
                     assert cres.r != 2
                 except (asyncio.TimeoutError, AssertionError):
                     nameservers.fail(addr)
-                except utils.DNSError:
+                except DNSError:
                     pass
                 else:
                     break
@@ -187,14 +155,14 @@ class AsyncResolver:
             res.r = cres.r
         return n > 0
 
-    async def query(self, fqdn, qtype = types.ANY):
+    async def query(self, fqdn, qtype=types.ANY, timeout=3.0):
         key = fqdn, qtype
         future = self.futures.get(key)
         if future is None:
             future = self.futures[key] = asyncio.Future()
             asyncio.ensure_future(self.do_query(key))
         try:
-            res = await asyncio.wait_for(future, 3.0)
+            res = await asyncio.wait_for(future, timeout)
         except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
             pass
         else:
@@ -202,8 +170,8 @@ class AsyncResolver:
 
     async def do_query(self, key):
         fqdn, qtype = key
-        res = utils.DNSMessage(ra = self.recursive)
-        res.qd.append(utils.Record(utils.REQUEST, name = fqdn, qtype = qtype))
+        res = DNSMessage(ra = self.recursive)
+        res.qd.append(Record(REQUEST, name = fqdn, qtype = qtype))
         future = self.futures[key]
         ret = (await self.query_cache(res, fqdn, qtype)) or (await self.query_remote(res, fqdn, qtype))
         if not ret and not res.r:
@@ -214,6 +182,8 @@ class AsyncResolver:
 
 class AsyncProxyResolver(AsyncResolver):
     proxies = address.NameServers(['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6'])
+
+    def initialize(self): pass
 
     def get_nameservers(self, fdqn = None):
         return self.proxies
