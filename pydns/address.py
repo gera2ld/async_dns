@@ -80,7 +80,7 @@ class NameServers:
     def __init__(self, nameservers = None, default_port = 53):
         self.default_port = default_port
         self.data = deque()
-        if nameservers is not None:
+        if nameservers:
             for nameserver in nameservers:
                 self.data.append(Address(nameserver, default_port))
 

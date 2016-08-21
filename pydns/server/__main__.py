@@ -2,14 +2,8 @@
 # coding=utf-8
 import argparse, logging, asyncio
 from . import DNSServer
+from ..resolver import AsyncProxyResolver
 from ..logger import logger
-
-DEFAULT_PROXIES = [
-    '114.114.114.114',
-    '180.76.76.76',
-    '223.5.5.5',
-    '223.6.6.6',
-]
 
 def main():
     logger.setLevel(logging.INFO)
@@ -24,7 +18,7 @@ def main():
             help='the address for the server to bind')
     parser.add_argument('--hosts', help='the path of a hosts file')
     parser.add_argument('-P', '--proxy', nargs='+',
-            default=DEFAULT_PROXIES,
+            default=AsyncProxyResolver.DEFAULT_NAMESERVERS,
             help='the proxy DNS servers')
     parser.add_argument('-p', '--protocol', choices=['udp', 'tcp'], default='udp',
             help='whether to use TCP protocol as default to query remote servers')
