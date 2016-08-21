@@ -8,7 +8,9 @@ import asyncio, os
 from .. import types, address
 from .. import *
 from ..logger import logger
-from . import tcp, udp, cache
+from . import tcp, udp
+from ..cache import DNSMemCache
+__all__ = ['AsyncResolver', 'AsyncProxyResolver']
 
 A_TYPES = types.A, types.AAAA
 
@@ -16,14 +18,11 @@ class AsyncResolver:
     recursive = 1
     rootdomains = ['.lan']
 
-    def __init__(self, protocol = UDP):
+    def __init__(self, protocol=UDP, cache=None):
         self.futures = {}
-        self.cache = cache.DNSMemCache()
+        if cache is None: cache = DNSMemCache()
+        self.cache = cache
         self.protocol = InternetProtocol.get(protocol)
-        self.initialize()
-
-    def initialize(self):
-        self.cache.add_roots()
 
     async def query_cache(self, res, fqdn, qtype):
         # cached CNAME
@@ -183,8 +182,6 @@ class AsyncResolver:
 
 class AsyncProxyResolver(AsyncResolver):
     proxies = address.NameServers(['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6'])
-
-    def initialize(self): pass
 
     def get_nameservers(self, fdqn = None):
         return self.proxies
