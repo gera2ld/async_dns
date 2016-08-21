@@ -159,7 +159,8 @@ class AsyncResolver:
         key = fqdn, qtype
         future = self.futures.get(key)
         if future is None:
-            future = self.futures[key] = asyncio.Future()
+            loop = asyncio.get_event_loop()
+            future = self.futures[key] = loop.create_future()
             asyncio.ensure_future(self.do_query(key))
         try:
             res = await asyncio.wait_for(future, timeout)

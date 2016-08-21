@@ -15,7 +15,8 @@ class CallbackProtocol(asyncio.DatagramProtocol):
             self.future.set_result(data)
 
 async def request(qdata, addr, timeout = 3.0):
-    future = asyncio.Future()
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
     loop = asyncio.get_event_loop()
     transport, protocol = await asyncio.wait_for(
         loop.create_datagram_endpoint(lambda : CallbackProtocol(future), remote_addr = addr.to_addr()),
