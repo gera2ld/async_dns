@@ -77,7 +77,8 @@ async def request(qdata, addr, timeout = 3.0):
         else:
             raise ConnectionError
         protocol.key = key
-    future = asyncio.Future()
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
     protocol.write_data(future, qdata)
     data = await asyncio.wait_for(future, timeout)
     try:
