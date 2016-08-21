@@ -4,6 +4,7 @@ import asyncio
 from .. import DNSMessage, UDP, InternetProtocol
 from .. import utils, resolver
 from ..logger import logger
+from ..cache import DNSMemCache
 
 class DNSMixIn:
     def __init__(self, resolver, *k, **kw):
@@ -56,7 +57,9 @@ class DNSServer:
         self.host = host
         self.port = port
         self.TCPProtocol, self.UDPProtocol = protocol_classes
-        self.resolver = resolver.AsyncProxyResolver(resolve_protocol)
+        cache = DNSMemCache()
+        cache.add_root_servers()
+        self.resolver = resolver.AsyncProxyResolver(resolve_protocol, cache)
         if hosts is not None:
             self.resolver.cache.parse_file(hosts)
         if proxies:
@@ -73,14 +76,3 @@ class DNSServer:
         else:
             transport = None
         return server, transport
-
-    def serve(self):
-        logger.info('DNS server v2 - by Gerald')
-        loop = asyncio.get_event_loop()
-        server, transport = loop.run_until_complete(self.start_server())
-        if server is not None:
-            logger.info('Serving on %s, port %d, TCP', *(server.sockets[0].getsockname()[:2]))
-        if transport is not None:
-            sock = transport.get_extra_info('socket')
-            logger.info('Serving on %s, port %d, UDP', *(sock.getsockname()[:2]))
-        loop.run_forever()

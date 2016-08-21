@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # coding=utf-8
 import os
-from .. import *
-from .. import types, hosts
-from ..logger import logger
+from . import *
+from . import types, hosts
+__all__ = ['DNSMemCache']
 
-cachefile = os.path.expanduser('~/.gerald/named.cache.txt')
+cachefile = os.path.expanduser('~/.pydns/named.cache.txt')
 def get_name_cache(url = 'ftp://rs.internic.net/domain/named.cache',
         fname = cachefile):
     from urllib import request
@@ -33,16 +33,16 @@ def get_root_servers(fname = cachefile):
             yield data
 
 class DNSMemCache(hosts.Hosts):
-    name = 'DNSMemD/Gerald'
+    name = 'DNSMemD/pydns'
 
     def __init__(self, filename = None):
         super().__init__(filename)
         self.add_item('1.0.0.127.in-addr.arpa', types.PTR, self.name)
         self.add_item('localhost', types.A, '127.0.0.1')
 
-    def add_roots(self):
-        for item in get_root_servers():
-            self.add_item(*item)
-
     def add_item(self, key, qtype, data):
         self.add_host(Record(name = key, data = data, qtype = qtype, ttl = -1))
+
+    def add_root_servers(self):
+        for item in get_root_servers():
+            self.add_item(*item)
