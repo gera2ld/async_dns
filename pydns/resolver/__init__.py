@@ -181,10 +181,16 @@ class AsyncResolver:
             future.set_result(res)
 
 class AsyncProxyResolver(AsyncResolver):
-    proxies = address.NameServers(['114.114.114.114', '180.76.76.76', '223.5.5.5', '223.6.6.6'])
+    DEFAULT_NAMESERVERS = [
+        '114.114.114.114',
+        '180.76.76.76',
+        '223.5.5.5',
+        '223.6.6.6',
+    ]
+    proxies = address.NameServers(DEFAULT_NAMESERVERS)
 
-    def get_nameservers(self, fdqn = None):
-        return self.proxies
+    def get_nameservers(self, fdqn):
+        return self.proxies or super().get_nameservers(fdqn)
 
     def set_proxies(self, proxies):
         self.proxies = address.NameServers(proxies)
