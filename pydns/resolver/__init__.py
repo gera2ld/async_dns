@@ -1,13 +1,9 @@
-#!/usr/bin/env python
-# coding=utf-8
 '''
 Asynchronous DNS client
 This is designed to improve performance of the server.
 '''
 import asyncio, os
-from .. import types, address
 from .. import *
-from ..logger import logger
 from . import tcp, udp
 from ..cache import DNSMemCache
 __all__ = ['AsyncResolver', 'AsyncProxyResolver']

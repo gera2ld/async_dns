@@ -25,6 +25,19 @@ $ python3 -m pydns.server -b :53 -p tcp --hosts /etc/hosts
 $ python3 -m pydns.server -P 8.8.8.8 -p tcp
 ```
 
+API
+---
+``` python
+import asyncio
+from pydns import types
+from pydns.resolver import AsyncProxyResolver
+
+loop = asyncio.get_event_loop()
+resolver = AsyncProxyResolver()
+res = loop.run_until_complete(resolver.query('www.baidu.com', types.A))
+print(res)
+```
+
 Test
 ---
 ``` sh

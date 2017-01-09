@@ -1,7 +1,4 @@
-#!/usr/bin/env python
-# coding=utf-8
 import argparse, asyncio
-from .. import types, address
 from .. import *
 from . import AsyncProxyResolver
 
@@ -36,6 +33,6 @@ def resolve_hostnames(args):
         res = fut.result()
         hostname = res.qd[0].name
         for item in res.an:
-            print(hostname, '=>[%s]' % types.type_name(item.qtype), item.data)
+            print(hostname, '=>[%s]' % utils.type_name(item.qtype), item.data)
 
 resolve_hostnames(parse_args())
