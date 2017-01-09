@@ -1,7 +1,9 @@
 pydns
 ===
 
-Requirements: Python 3.5+ (`asyncio` is required)
+This a DNS server and client library built with pure Python.
+
+Requirements: Python 3.5+ (`asyncio` is required).
 
 Installation
 ---
