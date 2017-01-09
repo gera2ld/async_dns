@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding=utf-8
-
 def get_servers(filename = '/etc/resolv.conf'):
     nameservers = []
     for line in open(filename, 'r'):

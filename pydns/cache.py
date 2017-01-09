@@ -1,8 +1,5 @@
-#!/usr/bin/env python
-# coding=utf-8
 import os
 from . import *
-from . import types, hosts
 __all__ = ['DNSMemCache']
 
 cachefile = os.path.expanduser('~/.pydns/named.cache.txt')

@@ -1,9 +1,6 @@
-#!/usr/bin/env python
-# coding=utf-8
 import asyncio
 from .. import DNSMessage, UDP, InternetProtocol
-from .. import utils, resolver
-from ..logger import logger
+from .. import utils, resolver, logger
 from ..cache import DNSMemCache
 
 class DNSMixIn:

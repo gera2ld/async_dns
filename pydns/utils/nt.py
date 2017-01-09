@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# coding=utf-8
 import sys, winreg
 
 def _nt_read_key(lm, key):

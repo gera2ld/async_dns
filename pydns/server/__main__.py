@@ -1,9 +1,7 @@
-#!/usr/bin/env python
-# coding=utf-8
 import argparse, logging, asyncio
 from . import DNSServer
+from .. import logger
 from ..resolver import AsyncProxyResolver
-from ..logger import logger
 
 def main():
     logger.setLevel(logging.INFO)

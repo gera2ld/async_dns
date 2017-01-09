@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# coding=utf-8
 import unittest, asyncio
 from pydns.resolver import AsyncProxyResolver
 from pydns import types

@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding=utf-8
-
 TYPES = {
     0: 'NONE',
     1: 'A',
