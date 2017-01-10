@@ -38,7 +38,7 @@ class DNSMemCache(hosts.Hosts):
         self.add_item('localhost', types.A, '127.0.0.1')
 
     def add_item(self, key, qtype, data):
-        self.add_host(Record(name = key, data = data, qtype = qtype, ttl = -1))
+        self.add_host(Record(name=key, data=data, qtype=qtype, ttl=-1))
 
     def add_root_servers(self):
         for item in get_root_servers():
