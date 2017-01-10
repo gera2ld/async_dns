@@ -40,7 +40,7 @@ class Hosts:
                 else:
                     values.append(i.lower())
             for i in values:
-                self.add_host(Record(name = i, qtype = addr.ip_type, ttl = -1, data = addr.hostname))
+                self.add_host(Record(name=i, qtype=addr.ip_type, ttl=-1, data=addr.hostname))
 
     def add_host(self, record):
         if record.ttl == 0:

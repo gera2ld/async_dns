@@ -75,7 +75,7 @@ class AsyncResolver:
                     yield address.Address(host, 53)
                     empty = False
 
-    async def request(self, qdata, addr, timeout = 3.0, protocol = None):
+    async def request(self, qdata, addr, timeout=3.0, protocol=None):
         if protocol is None:
             protocol = self.protocol
         if protocol is TCP:
@@ -86,6 +86,7 @@ class AsyncResolver:
         return data
 
     async def query_remote(self, res, fqdn, qtype):
+        if fqdn.endswith('.in-addr.arpa'): return
         # look up from other DNS servers
         nameservers = address.NameServers(self.get_nameservers(fqdn))
         cname = [fqdn]
@@ -166,8 +167,8 @@ class AsyncResolver:
 
     async def do_query(self, key):
         fqdn, qtype = key
-        res = DNSMessage(ra = self.recursive)
-        res.qd.append(Record(REQUEST, name = fqdn, qtype = qtype))
+        res = DNSMessage(ra=self.recursive)
+        res.qd.append(Record(REQUEST, name=fqdn, qtype=qtype))
         future = self.futures[key]
         ret = (await self.query_cache(res, fqdn, qtype)) or (await self.query_remote(res, fqdn, qtype))
         if not ret and not res.r:
