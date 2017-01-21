@@ -1,6 +1,6 @@
 import asyncio
 from .. import DNSMessage, UDP, InternetProtocol
-from .. import utils, resolver, logger
+from .. import resolver, logger, types
 from ..cache import DNSMemCache
 
 class DNSMixIn:
@@ -23,7 +23,7 @@ class DNSMixIn:
             else:
                 l = 0
                 r = -1
-            logger.info('%s %4s %s %d %d', addr[0], utils.type_name(c.qtype), c.name, r, l)
+            logger.info('%s %4s %s %d %d', addr[0], types.get_name(c.qtype), c.name, r, l)
             break   # only one question is supported
 
 class DNSDatagramProtocol(DNSMixIn, asyncio.DatagramProtocol):
@@ -56,7 +56,7 @@ class DNSServer:
         self.TCPProtocol, self.UDPProtocol = protocol_classes
         cache = DNSMemCache()
         cache.add_root_servers()
-        self.resolver = resolver.AsyncProxyResolver(resolve_protocol, cache)
+        self.resolver = resolver.ProxyResolver(resolve_protocol, cache)
         if hosts is not None:
             self.resolver.cache.parse_file(hosts)
         if proxies:
