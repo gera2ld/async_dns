@@ -1,5 +1,6 @@
 async_dns
 ===
+[![PyPI](https://img.shields.io/pypi/v/async_dns.svg)]()
 
 Asynchronous DNS server and client built with pure Python.
 
@@ -8,6 +9,8 @@ Requirements: Python 3.5+ (`asyncio` is required).
 Installation
 ---
 ``` sh
+$ pip3 install async_dns
+# or
 $ pip3 install git+https://github.com/gera2ld/async_dns.git
 ```
 
