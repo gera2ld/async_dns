@@ -3,11 +3,22 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='pydns',
+    name='async_dns',
     version='1.0',
-    packages=find_packages(exclude=['test']),
+    description='Asynchronous DNS client and server',
+    long_description='Asynchronous DNS client and server written in pure Python, based on asyncio.',
+    url='https://github.com/gera2ld/async_dns',
     author='Gerald',
     author_email='i@gerald.top',
-    description='DNS client and server written in Python, based on asyncio.',
-    url='https://github.com/gera2ld/pydns',
+    license='MIT',
+    classifiers=[
+        'Development Status :: 6 - Mature',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3 :: Only',
+    ],
+    keywords='async dns asyncio',
+    packages=find_packages(exclude=['tests']),
 )

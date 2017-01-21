@@ -38,15 +38,15 @@ class DNSError(Exception):
         4: 'Not implemented: query type not supported',
         5: 'Refused: policy reasons'
     }
-    def __init__(self, code, message = None):
+    def __init__(self, code, message=None):
         message = self.errors.get(code, message) or 'Unknown reply code: %d' % code
         super().__init__(message)
         self.code = code
 
 class SOA_RData:
     def __init__(self, data, l):
-        i, self.mname = utils.get_name(data, l)
-        i, self.rname = utils.get_name(data, i)
+        i, self.mname = utils.load_name(data, l)
+        i, self.rname = utils.load_name(data, i)
         (
             self.serial,
             self.refresh,
@@ -59,7 +59,7 @@ class SOA_RData:
         return '<%s>' % self.rname
 
 class Record:
-    def __init__(self, q = RESPONSE, name = '', qtype = types.ANY, qclass = 1, ttl = 0, data = None):
+    def __init__(self, q=RESPONSE, name='', qtype=types.ANY, qclass=1, ttl=0, data=None):
         self.q = q
         self.name = name
         self.qtype = qtype
@@ -71,18 +71,18 @@ class Record:
 
     def __repr__(self):
         if self.q == REQUEST:
-            return str((self.name, utils.type_name(self.qtype)))
+            return str((self.name, types.get_name(self.qtype)))
         else:
-            return str((self.name, utils.type_name(self.qtype), self.data, self.ttl))
+            return str((self.name, types.get_name(self.qtype), self.data, self.ttl))
 
     def copy(self, **kw):
         return Record(
-            q = kw.get('q', self.q),
-            name = kw.get('name', self.name),
-            qtype = kw.get('qtype', self.qtype),
-            qclass = kw.get('qclass', self.qclass),
-            ttl = kw.get('ttl', self.ttl),
-            data = kw.get('data', self.data)
+            q=kw.get('q', self.q),
+            name=kw.get('name', self.name),
+            qtype=kw.get('qtype', self.qtype),
+            qclass=kw.get('qclass', self.qclass),
+            ttl=kw.get('ttl', self.ttl),
+            data=kw.get('data', self.data)
         )
 
     def update(self, other):
@@ -92,7 +92,7 @@ class Record:
             return self
 
     def parse(self, data, l):
-        l, self.name = utils.get_name(data, l)
+        l, self.name = utils.load_name(data, l)
         self.qtype, self.qclass = struct.unpack('!HH', data[l: l + 4])
         l += 4
         if self.q == RESPONSE:
@@ -105,14 +105,14 @@ class Record:
                 self.data = socket.inet_ntop(socket.AF_INET6, data[l: l + dl])
             elif self.qtype == types.MX:
                 # priority, hostname
-                self.data = struct.unpack('!H', data[l: l + 2]) + (utils.get_name(data, l + 2)[1], )
+                self.data = struct.unpack('!H', data[l: l + 2]) + (utils.load_name(data, l + 2)[1], )
             elif self.qtype == types.SRV:
                 # priority, weight, port, hostname
-                self.data = struct.unpack('!HHH', data[l: l + 6]) + (utils.get_name(data, l + 6)[1], )
+                self.data = struct.unpack('!HHH', data[l: l + 6]) + (utils.load_name(data, l + 6)[1], )
             elif self.qtype == types.SOA:
                 self.data = SOA_RData(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
-                self.data = utils.get_name(data, l)[1]
+                self.data = utils.load_name(data, l)[1]
             else:
                 self.data = data[l: l + dl]
             l += dl
@@ -173,7 +173,7 @@ class Record:
         return buf.getvalue()
 
 class DNSMessage:
-    def __init__(self, qr = RESPONSE, qid = 0, o = 0, aa = 0, tc = 0, rd = 1, ra = 0, r = 0):
+    def __init__(self, qr=RESPONSE, qid=0, o=0, aa=0, tc=0, rd=1, ra=0, r=0):
         self.qr = qr      # 0 for request, 1 for response
         self.qid = qid    # id for UDP package
         self.o = o        # opcode: 0 for standard query
@@ -201,7 +201,8 @@ class DNSMessage:
         # TODO update self.tc
         buf = io.BytesIO()
         names = {}
-        buf.write(struct.pack('!HHHHHH',
+        buf.write(struct.pack(
+            '!HHHHHH',
             self.qid,
             (self.qr << 15) + (self.o << 11) + (self.aa << 10) + (self.tc << 9) + (self.rd << 8) + (self.ra << 7) + (z << 4) + self.r,
             len(self.qd),
