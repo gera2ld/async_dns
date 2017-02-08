@@ -1,13 +1,10 @@
 '''
 Request using TCP protocol.
 '''
-
 import asyncio
 
 _DEFAULT_QUEUE_SIZE = 10
 _DEFAULT_CONNECTION_LIFETIME = 120
-
-connections = {}
 
 class DNSConnectionError(ConnectionError):
     '''
@@ -18,6 +15,7 @@ class CallbackProtocol(asyncio.Protocol):
     '''
     Protocol class for asyncio connection callback.
     '''
+    _connections = {}
     def __init__(self, key):
         super().__init__(self)
         self.key = key
@@ -67,13 +65,21 @@ class CallbackProtocol(asyncio.Protocol):
         self._close_handle = loop.call_later(_DEFAULT_CONNECTION_LIFETIME, self._close)
 
     def _close(self):
-        connections.pop(self.key, None)
+        self._connections.pop(self.key, None)
         self.cached = False
         self.transport.close()
 
     def connection_lost(self, exc):
         if self.cached:
             self._close()
+
+    @classmethod
+    def get_queue(cls, key):
+        '''Get an async queue by key.'''
+        queue = cls._connections.get(key)
+        if queue is None:
+            queue = cls._connections[key] = asyncio.Queue(maxsize=_DEFAULT_QUEUE_SIZE)
+        return queue
 
 async def _connect(addr, onconnect, timeout=3.0):
     loop = asyncio.get_event_loop()
@@ -88,9 +94,7 @@ async def request(qdata, addr, timeout=3.0):
     Send raw data with a connection pool.
     '''
     key = addr.to_str(53)
-    queue = connections.get(key)
-    if queue is None:
-        queue = connections[key] = asyncio.Queue(maxsize=_DEFAULT_QUEUE_SIZE)
+    queue = CallbackProtocol.get_queue(key)
     try:
         protocol = queue.get_nowait()
         assert protocol.cached
