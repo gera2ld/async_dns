@@ -4,7 +4,7 @@ This module starts a DNS server according to console arguments.
 import argparse
 import logging
 import asyncio
-from . import DNSServer
+from . import start_server
 from .. import logger
 from ..resolver import ProxyResolver
 
@@ -17,9 +17,7 @@ def _init_logging():
     logger.addHandler(handler)
 
 def main():
-    '''
-    Start a DNS server.
-    '''
+    '''Start a DNS server from command line.'''
     _init_logging()
     parser = argparse.ArgumentParser(description='DNS server by Gerald.')
     parser.add_argument(
@@ -43,12 +41,11 @@ def main():
     else:
         port = 53
 
-    server = DNSServer(
-        host, port, hosts=args.hosts,
-        resolve_protocol=args.protocol, proxies=args.proxy)
     logger.info('DNS server v2 - by Gerald')
     loop = asyncio.get_event_loop()
-    tcpserver, udptransport = loop.run_until_complete(server.start_server())
+    tcpserver, udptransport = loop.run_until_complete(start_server(
+        host, port, hosts=args.hosts,
+        resolve_protocol=args.protocol, proxies=args.proxy))
     if tcpserver is not None:
         logger.info('Serving on %s, port %d, TCP', *(tcpserver.sockets[0].getsockname()[:2]))
     if udptransport is not None:

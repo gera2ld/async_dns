@@ -1,7 +1,6 @@
 '''
 Request using UDP protocol.
 '''
-
 import asyncio
 
 class CallbackProtocol(asyncio.DatagramProtocol):
