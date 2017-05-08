@@ -109,6 +109,9 @@ class Record:
             elif self.qtype == types.SRV:
                 # priority, weight, port, hostname
                 self.data = struct.unpack('!HHH', data[l: l + 6]) + (utils.load_name(data, l + 6)[1], )
+            elif self.qtype == types.NAPTR:
+                # order, preference, flags, service
+                self.data = struct.unpack('!HHH', data[l: l + 6]) + (utils.load_name(data, l + 6)[1], )
             elif self.qtype == types.SOA:
                 self.data = SOA_RData(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR):

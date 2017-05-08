@@ -11,6 +11,7 @@ PTR = 12
 MX = 15
 AAAA = 28
 SRV = 33
+NAPTR = 35
 ANY = 255
 
 def _is_type(name):
