@@ -8,6 +8,7 @@ class CallbackProtocol(asyncio.DatagramProtocol):
     Protocol class for asyncio connection callback.
     '''
     def __init__(self):
+        super().__init__()
         self.future = None
         self.transport = None
 

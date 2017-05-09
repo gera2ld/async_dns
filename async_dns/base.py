@@ -15,7 +15,6 @@ class InternetProtocol:
     protocols = {}
 
     def __init__(self, name):
-        name = name.lower()
         self.protocol = name
         self.protocols[name] = self
 
@@ -43,20 +42,92 @@ class DNSError(Exception):
         super().__init__(message)
         self.code = code
 
-class SOA_RData:
-    def __init__(self, data, l):
-        i, self.mname = utils.load_name(data, l)
-        i, self.rname = utils.load_name(data, i)
+class RData:
+    '''Base class of RData'''
+    rtype = -1
+
+    @property
+    def type_name(self):
+        return types.get_name(self.rtype).lower()
+
+class SOA_RData(RData):
+    '''Start of Authority record'''
+    rtype = types.SOA
+
+    def __init__(self, *k):
         (
+            self.mname,
+            self.rname,
             self.serial,
             self.refresh,
             self.retry,
             self.expire,
             self.minimum,
-        ) = struct.unpack('!LLLLL', data[i: i + 20])
+        ) = k
 
     def __repr__(self):
-        return '<%s>' % self.rname
+        return '<%s: %s>' % (self.type_name, self.rname)
+
+    @classmethod
+    def load(cls, data, l):
+        i, mname = utils.load_name(data, l)
+        i, rname = utils.load_name(data, i)
+        (
+            serial,
+            refresh,
+            retry,
+            expire,
+            minimum,
+        ) = struct.unpack('!LLLLL', data[i: i + 20])
+        return i + 20, cls(mname, rname, serial, refresh, retry, expire, minimum)
+
+    def dump(self, pack_name, offset):
+        mname = pack_name(self.mname, offset + 2)
+        yield mname
+        yield pack_name(self.rname, offset + 2 + len(mname))
+        yield struct.pack('!LLLLL', self.serial, self.refresh, self.retry, self.expire, self.minimum)
+
+class MX_RData(RData):
+    '''Mail exchanger record'''
+
+    rtype = types.MX
+
+    def __init__(self, *k):
+        self.preference, self.exchange = k
+
+    def __repr__(self):
+        return '<%s-%s: %s>' % (self.type_name, self.preference, self.exchange)
+
+    @classmethod
+    def load(cls, data, l):
+        preference, = struct.unpack('!H', data[l: l + 2])
+        i, exchange = utils.load_name(data, l + 2)
+        return i, cls(preference, exchange)
+
+    def dump(self, pack_name, offset):
+        yield struct.pack('!H', self.preference)
+        yield pack_name(self.exchange, offset + 4)
+
+class SRV_RData(RData):
+    '''Service record'''
+
+    rtype = types.SRV
+
+    def __init__(self, *k):
+        self.priority, self.weight, self.port, self.hostname = k
+
+    def __repr__(self):
+        return '<%s-%s: %s:%s>' % (self.type_name, self.priority, self.hostname, self.port)
+
+    @classmethod
+    def load(cls, data, l):
+        priority, weight, port = struct.unpack('!HHH', data[l: l + 6])
+        i, hostname = utils.load_name(data, l + 6)
+        return i, cls(priority, weight, port, hostname)
+
+    def dump(self, pack_name, offset):
+        yield struct.pack('!HHH', self.priority, self.weight, self.port)
+        yield pack_name(self.hostname, offset + 8)
 
 class Record:
     def __init__(self, q=RESPONSE, name='', qtype=types.ANY, qclass=1, ttl=0, data=None):
@@ -104,13 +175,11 @@ class Record:
             elif self.qtype == types.AAAA:
                 self.data = socket.inet_ntop(socket.AF_INET6, data[l: l + dl])
             elif self.qtype == types.MX:
-                # priority, hostname
-                self.data = struct.unpack('!H', data[l: l + 2]) + (utils.load_name(data, l + 2)[1], )
+                _, self.data = MX_RData.load(data, l)
             elif self.qtype == types.SRV:
-                # priority, weight, port, hostname
-                self.data = struct.unpack('!HHH', data[l: l + 6]) + (utils.load_name(data, l + 6)[1], )
+                _, self.data = SRV_RData.load(data, l)
             elif self.qtype == types.SOA:
-                self.data = SOA_RData(data, l)
+                self.data = SOA_RData.load(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
                 self.data = utils.load_name(data, l)[1]
             else:
@@ -118,27 +187,11 @@ class Record:
             l += dl
         return l
 
-    @staticmethod
-    def pack_name(name, names, offset=0):
-        parts = name.split('.')
-        buf = io.BytesIO()
-        while parts:
-            subname = '.'.join(parts)
-            u = names.get(subname)
-            if u:
-                buf.write(struct.pack('!H', 0xc000 + u))
-                break
-            else:
-                names[subname] = buf.tell() + offset
-            buf.write(utils.pack_string(parts.pop(0)))
-        else:
-            buf.write(b'\0')
-        return buf.getvalue()
-
     def pack(self, names, offset=0):
+        def pack_name(name, pack_offset):
+            return utils.pack_name(name, names, pack_offset)
         buf = io.BytesIO()
-        chunk = self.pack_name(self.name, names, offset)
-        buf.write(chunk)
+        buf.write(utils.pack_name(self.name, names, offset))
         buf.write(struct.pack('!HH', self.qtype, self.qclass))
         if self.q == RESPONSE:
             if self.ttl < 0:
@@ -151,20 +204,13 @@ class Record:
                 self.timestamp = now
                 ttl = self.ttl
             buf.write(struct.pack('!L', ttl))
-            if self.qtype == types.A:
+            if isinstance(self.data, RData):
+                data_str = b''.join(self.data.dump(pack_name, offset + buf.tell()))
+                buf.write(utils.pack_string(data_str, '!H'))
+            elif self.qtype == types.A:
                 buf.write(utils.pack_string(socket.inet_aton(self.data), '!H'))
             elif self.qtype == types.AAAA:
                 buf.write(utils.pack_string(socket.inet_pton(socket.AF_INET6, self.data), '!H'))
-            elif self.qtype == types.MX:
-                name = self.pack_name(self.data[1], names, offset + buf.tell() + 4)
-                buf.write(utils.pack_string(struct.pack('!H', self.data[0]) + name, '!H'))
-            elif self.qtype == types.SRV:
-                name = self.pack_name(self.data[3], names, offset + buf.tell() + 8)
-                buf.write(utils.pack_string(struct.pack('!HHH', self.data[:3]) + name, '!H'))
-            elif self.qtype == types.SOA:
-                mname = self.pack_name(self.data[0], names, offset + buf.tell() + 2)
-                rname = self.pack_name(self.data[1], names, offset + buf.tell() + 2 + len(mname))
-                buf.write(utils.pack_string(mname + rname + struct.pack('!LLLLL', *self.data[2:]), '!H'))
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
                 name = self.pack_name(self.data, names, offset + buf.tell() + 2)
                 buf.write(utils.pack_string(name, '!H'))

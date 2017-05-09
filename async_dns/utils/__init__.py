@@ -4,6 +4,7 @@ Utility methods for parsing and packing DNS record data.
 
 import struct
 import os
+import io
 
 def load_name(data, offset):
     '''Return the full name and offset from packed data.'''
@@ -37,6 +38,22 @@ def get_bits(num, bit_len):
     high = num >> bit_len
     low = num - (high << bit_len)
     return low, high
+
+def pack_name(name, names, offset=0):
+    parts = name.split('.')
+    buf = io.BytesIO()
+    while parts:
+        subname = '.'.join(parts)
+        u = names.get(subname)
+        if u:
+            buf.write(struct.pack('!H', 0xc000 + u))
+            break
+        else:
+            names[subname] = buf.tell() + offset
+        buf.write(pack_string(parts.pop(0)))
+    else:
+        buf.write(b'\0')
+    return buf.getvalue()
 
 if os.name == 'nt':
     from .nt import get_servers
