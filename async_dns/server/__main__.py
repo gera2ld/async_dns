@@ -19,7 +19,9 @@ def _init_logging():
 def main():
     '''Start a DNS server from command line.'''
     _init_logging()
-    parser = argparse.ArgumentParser(description='DNS server by Gerald.')
+    parser = argparse.ArgumentParser(
+        prog='python3 -m async_dns.server',
+        description='DNS server by Gerald.')
     parser.add_argument(
         '-b', '--bind', default=':',
         help='the address for the server to bind')
