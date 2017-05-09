@@ -5,7 +5,7 @@ import argparse
 import logging
 import asyncio
 from . import start_server
-from .. import logger
+from .. import logger, address
 from ..resolver import ProxyResolver
 
 def _init_logging():
@@ -23,33 +23,26 @@ def main():
         prog='python3 -m async_dns.server',
         description='DNS server by Gerald.')
     parser.add_argument(
-        '-b', '--bind', default=':',
+        '-b', '--bind', default=':53',
         help='the address for the server to bind')
     parser.add_argument('--hosts', help='the path of a hosts file')
     parser.add_argument(
-        '-P', '--proxy', nargs='+',
+        '-x', '--proxy', nargs='+',
         default=ProxyResolver.DEFAULT_NAMESERVERS,
         help='the proxy DNS servers')
     parser.add_argument(
         '-p', '--protocol', choices=['udp', 'tcp'], default='udp',
         help='whether to use TCP protocol as default to query remote servers')
     args = parser.parse_args()
-
-    host, _, port = args.bind.rpartition(':')
-    if not host:
-        host = '0.0.0.0'
-    if port:
-        port = int(port)
-    else:
-        port = 53
-
+    addr = address.Address(args.bind, allow_domain=True)
     logger.info('DNS server v2 - by Gerald')
     loop = asyncio.get_event_loop()
     tcpserver, udptransport = loop.run_until_complete(start_server(
-        host, port, hosts=args.hosts,
+        host=addr.host, port=addr.port, hosts=args.hosts,
         resolve_protocol=args.protocol, proxies=args.proxy))
     if tcpserver is not None:
-        logger.info('Serving on %s, port %d, TCP', *(tcpserver.sockets[0].getsockname()[:2]))
+        for sock in tcpserver.sockets:
+            logger.info('Serving on %s, port %d, TCP', *(sock.getsockname()[:2]))
     if udptransport is not None:
         sock = udptransport.get_extra_info('socket')
         logger.info('Serving on %s, port %d, UDP', *(sock.getsockname()[:2]))

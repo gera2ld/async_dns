@@ -84,7 +84,7 @@ class CallbackProtocol(asyncio.Protocol):
 async def _connect(addr, onconnect, timeout=3.0):
     loop = asyncio.get_event_loop()
     _transport, protocol = await asyncio.wait_for(
-        loop.create_connection(onconnect, host=addr.hostname, port=addr.port),
+        loop.create_connection(onconnect, host=addr.host, port=addr.port),
         timeout
     )
     return protocol

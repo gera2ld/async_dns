@@ -8,6 +8,7 @@ from ..cache import DNSMemCache
 
 class DNSMixIn:
     '''DNS handler mix-in'''
+
     def __init__(self, resolver_, *k, **kw):
         super().__init__(*k, **kw)
         self.resolver = resolver_
@@ -16,10 +17,12 @@ class DNSMixIn:
 
     def send_data(self, data, addr):
         '''Send data to remote server.'''
+
         raise NotImplementedError
 
     async def handle(self, data, addr):
         '''Main handle method for protocols.'''
+
         msg = DNSMessage.parse(data)
         for question in msg.qd:
             res = await self.resolver.query(question.name, question.qtype)
@@ -36,12 +39,15 @@ class DNSMixIn:
                 len_data = 0
                 res_code = -1
             logger.info(
-                '%s %4s %s %d %d', addr[0], types.get_name(question.qtype),
-                question.name, res_code, len_data)
+                '[%s|%s|%s] %s %d %d', self.protocol, addr[0],
+                types.get_name(question.qtype), question.name, res_code, len_data)
             break   # only one question is supported
 
 class DNSDatagramProtocol(DNSMixIn, asyncio.DatagramProtocol):
     '''DNS server handler through UDP protocol.'''
+
+    protocol = 'udp'
+
     def connection_made(self, transport):
         self.transport = transport
 
@@ -53,6 +59,9 @@ class DNSDatagramProtocol(DNSMixIn, asyncio.DatagramProtocol):
 
 class DNSProtocol(DNSMixIn, asyncio.Protocol):
     '''DNS server handler through TCP protocol.'''
+
+    protocol = 'tcp'
+
     def connection_made(self, transport):
         self.transport = transport
         self.addr = transport.get_extra_info('peername')
@@ -64,9 +73,10 @@ class DNSProtocol(DNSMixIn, asyncio.Protocol):
         self.transport.write(data)
 
 async def start_server(
-    host='0.0.0.0', port=53, protocol_classes=(DNSProtocol, DNSDatagramProtocol),
+    host='', port=53, protocol_classes=(DNSProtocol, DNSDatagramProtocol),
     hosts=None, resolve_protocol=UDP, proxies=None):
     '''Start a DNS server.'''
+
     if not isinstance(resolve_protocol, InternetProtocol):
         resolve_protocol = InternetProtocol.get(resolve_protocol)
     tcp_protocol, udp_protocol = protocol_classes

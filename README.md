@@ -60,7 +60,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -b BIND, --bind BIND  the address for the server to bind
   --hosts HOSTS         the path of a hosts file
-  -P PROXY [PROXY ...], --proxy PROXY [PROXY ...]
+  -x PROXY [PROXY ...], --proxy PROXY [PROXY ...]
                         the proxy DNS servers
   -p {udp,tcp}, --protocol {udp,tcp}
                         whether to use TCP protocol as default to query remote
