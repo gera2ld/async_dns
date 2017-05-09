@@ -17,7 +17,7 @@ class CallbackProtocol(asyncio.Protocol):
     '''
     _connections = {}
     def __init__(self, key):
-        super().__init__(self)
+        super().__init__()
         self.key = key
         self.transport = None
         self.cached = False
@@ -103,7 +103,7 @@ async def request(qdata, addr, timeout=3.0):
         for _retry in range(3):
             try:
                 protocol = await _connect(addr, onconnect, timeout)
-            except:
+            except asyncio.TimeoutError:
                 pass
             else:
                 break

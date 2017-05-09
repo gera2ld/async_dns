@@ -11,6 +11,13 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(utils.load_name(data, 12), (28, 'www.google.com'))
         self.assertEqual(utils.load_name(data, 32), (34, 'www.google.com'))
 
+    def test_pack_name(self):
+        names = {}
+        self.assertEqual(utils.pack_name('a.b.c', names, 0), b'\x01a\x01b\x01c\x00')
+        self.assertEqual(utils.pack_name('b.c', names, 10), b'\xc0\x02')
+        self.assertEqual(utils.pack_name('b.c.d', names, 12), b'\x01b\x01c\x01d\x00')
+        self.assertEqual(names, {'a.b.c': 0, 'b.c': 2, 'c': 4, 'b.c.d': 12, 'c.d': 14, 'd': 16})
+
     def test_pack_string(self):
         self.assertEqual(utils.pack_string('hello'), b'\5hello')
         self.assertEqual(utils.pack_string('hello', '!H'), b'\0\5hello')
