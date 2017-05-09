@@ -216,9 +216,9 @@ class Record:
             elif self.qtype == types.NAPTR:
                 _, self.data = NAPTR_RData.load(data, l)
             elif self.qtype == types.SOA:
-                self.data = SOA_RData.load(data, l)
+                _, self.data = SOA_RData.load(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
-                self.data = utils.load_name(data, l)[1]
+                _, self.data = utils.load_name(data, l)
             else:
                 self.data = data[l: l + dl]
             l += dl
@@ -249,7 +249,7 @@ class Record:
             elif self.qtype == types.AAAA:
                 buf.write(utils.pack_string(socket.inet_pton(socket.AF_INET6, self.data), '!H'))
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
-                name = self.pack_name(self.data, names, offset + buf.tell() + 2)
+                name = pack_name(self.data, offset + buf.tell() + 2)
                 buf.write(utils.pack_string(name, '!H'))
             else:
                 buf.write(utils.pack_string(self.data, '!H'))

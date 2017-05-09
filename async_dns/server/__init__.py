@@ -82,19 +82,26 @@ async def start_server(
     tcp_protocol, udp_protocol = protocol_classes
     cache = DNSMemCache()
     cache.add_root_servers()
-    _resolver = resolver.ProxyResolver(resolve_protocol, cache)
+    proxy_resolver = resolver.ProxyResolver(resolve_protocol, cache)
     if hosts is not None:
-        _resolver.cache.parse_file(hosts)
+        proxy_resolver.cache.parse_file(hosts)
     if proxies:
-        _resolver.set_proxies(proxies)
+        proxy_resolver.set_proxies(proxies)
     loop = asyncio.get_event_loop()
     if tcp_protocol:
-        server = await loop.create_server(lambda: tcp_protocol(_resolver), host, port)
+        server = await loop.create_server(
+            lambda: tcp_protocol(proxy_resolver), host, port)
     else:
         server = None
+    transport_arr = []
     if udp_protocol:
-        transport, _protocol = await loop.create_datagram_endpoint(
-            lambda: udp_protocol(_resolver), local_addr=(host, port))
-    else:
-        transport = None
-    return server, transport
+        if host:
+            host_arr = [host] if isinstance(host, str) else host
+        else:
+            host_arr = ['0.0.0.0', '::']
+        for host_bind in host_arr:
+            transport, protocol = await loop.create_datagram_endpoint(
+                lambda: udp_protocol(proxy_resolver),
+                local_addr=(host_bind, port))
+            transport_arr.append(transport)
+    return server, transport_arr

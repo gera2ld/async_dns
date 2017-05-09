@@ -37,15 +37,14 @@ def main():
     addr = address.Address(args.bind, allow_domain=True)
     logger.info('DNS server v2 - by Gerald')
     loop = asyncio.get_event_loop()
-    tcpserver, udptransport = loop.run_until_complete(start_server(
+    tcpserver, udp_transports = loop.run_until_complete(start_server(
         host=addr.host, port=addr.port, hosts=args.hosts,
         resolve_protocol=args.protocol, proxies=args.proxy))
     if tcpserver is not None:
         for sock in tcpserver.sockets:
             logger.info('Serving on %s, port %d, TCP', *(sock.getsockname()[:2]))
-    if udptransport is not None:
-        sock = udptransport.get_extra_info('socket')
-        logger.info('Serving on %s, port %d, UDP', *(sock.getsockname()[:2]))
+    for transport in udp_transports:
+        logger.info('Serving on %s, port %d, UDP', *(transport.get_extra_info('sockname')[:2]))
     loop.run_forever()
 
 main()
