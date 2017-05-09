@@ -129,6 +129,41 @@ class SRV_RData(RData):
         yield struct.pack('!HHH', self.priority, self.weight, self.port)
         yield pack_name(self.hostname, offset + 8)
 
+class NAPTR_RData(RData):
+    '''NAPTR record'''
+
+    rtype = types.NAPTR
+
+    def __init__(self, *k):
+        self.order, self.preference, self.flags, self.service, self.regexp, self.replacement = k
+
+    def __repr__(self):
+        return '<%s-%s-%s: %s %s %s %s>' % (self.type_name, self.order, self.preference, self.flags,
+                                      self.service, self.regexp, self.replacement)
+
+    @classmethod
+    def load(cls, data, l):
+        pos = l
+        order, preference = struct.unpack('!HH', data[pos: pos + 4])
+        pos += 4
+        length = data[pos]
+        pos += 1
+        flags = data[pos: pos + length].decode()
+        pos += length
+        length = data[pos]
+        pos += 1
+        service = data[pos: pos + length].decode()
+        pos += length
+        length = data[pos]
+        pos += 1
+        regexp = data[pos: pos + length].decode()
+        pos += length
+        i, replacement = utils.load_name(data, pos, lower=False)
+        return i, cls(order, preference, flags, service, regexp, replacement)
+
+    def dump(self, pack_name, offset):
+        raise NotImplementedError
+
 class Record:
     def __init__(self, q=RESPONSE, name='', qtype=types.ANY, qclass=1, ttl=0, data=None):
         self.q = q
@@ -178,6 +213,8 @@ class Record:
                 _, self.data = MX_RData.load(data, l)
             elif self.qtype == types.SRV:
                 _, self.data = SRV_RData.load(data, l)
+            elif self.qtype == types.NAPTR:
+                _, self.data = NAPTR_RData.load(data, l)
             elif self.qtype == types.SOA:
                 self.data = SOA_RData.load(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR):

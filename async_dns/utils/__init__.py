@@ -6,7 +6,7 @@ import struct
 import os
 import io
 
-def load_name(data, offset):
+def load_name(data, offset, lower=True):
     '''Return the full name and offset from packed data.'''
     parts = []
     cursor = None
@@ -24,7 +24,10 @@ def load_name(data, offset):
             continue
         parts.append(data[offset : offset + length])
         offset += length
-    return cursor, b'.'.join(parts).decode().lower()
+    data = b'.'.join(parts).decode()
+    if lower:
+        data = data.lower()
+    return cursor, data
 
 def pack_string(string, btype='B'):
     '''Pack string into `{length}{data}` format.'''
