@@ -17,13 +17,14 @@ class Resolver:
     recursive = 1
     rootdomains = ['.lan']
 
-    def __init__(self, protocol=UDP, cache=None, request_timeout=3.0):
+    def __init__(self, protocol=UDP, cache=None, request_timeout=3.0, timeout=3.0):
         self.futures = {}
         if cache is None:
             cache = DNSMemCache()
         self.cache = cache
         self.protocol = InternetProtocol.get(protocol)
         self.request_timeout = request_timeout
+        self.timeout = timeout
 
     async def query_cache(self, res, fqdn, qtype):
         '''Returns a boolean whether a cache hit occurs.'''
@@ -70,6 +71,7 @@ class Resolver:
     def get_nameservers(self, fqdn):
         '''Return a generator of parent domains'''
         empty = True
+        hosts = []
         while fqdn and empty:
             _sub, _, fqdn = fqdn.partition('.')
             for rec in self.cache.query(fqdn, types.NS):
@@ -77,11 +79,12 @@ class Resolver:
                 if address.Address(host, allow_domain=True).ip_type is None:
                     # host is a hostname instead of IP address
                     for res in self.cache.query(host, A_TYPES):
-                        yield address.Address(res.data, 53)
+                        hosts.append(address.Address(res.data, 53))
                         empty = False
                 else:
-                    yield address.Address(host, 53)
+                    hosts.append(address.Address(host, 53))
                     empty = False
+        return address.NameServers(hosts)
 
     async def request(self, req, addr, protocol=None):
         '''Return response to a request.
@@ -97,6 +100,22 @@ class Resolver:
         data = await request(req, addr, self.request_timeout)
         return data
 
+    async def get_remote(self, nameservers, req, future=None):
+        while True:
+            if future and future.cancelled():
+                break
+            addr = nameservers.get()
+            try:
+                data = await self.request(req, addr)
+                cres = DNSMessage.parse(data)
+                assert cres.r != 2
+            except (asyncio.TimeoutError, AssertionError):
+                nameservers.fail(addr)
+            except DNSError:
+                pass
+            else:
+                return cres
+
     async def query_remote(self, res, fqdn, qtype):
         '''Return a boolean indicating whether results are found.
 
@@ -106,30 +125,19 @@ class Resolver:
             # Reverse DNS lookup only occurs locally
             return
         # look up from other DNS servers
-        nameservers = address.NameServers(self.get_nameservers(fqdn))
+        nameservers = self.get_nameservers(fqdn)
         cname = [fqdn]
         req = DNSMessage(qr=REQUEST)
         has_result = False
+        key = fqdn, qtype
+        future = self.futures.get(key)
         while not has_result:
             if not cname:
                 break
             # seems that only one qd is supported by most NS
             req.qd = [Record(REQUEST, cname[0], qtype)]
             del cname[:]
-            for i in range(3):
-                addr = nameservers.get()
-                try:
-                    data = await self.request(req, addr)
-                    cres = DNSMessage.parse(data)
-                    assert cres.r != 2
-                except (asyncio.TimeoutError, AssertionError):
-                    nameservers.fail(addr)
-                except DNSError:
-                    pass
-                else:
-                    break
-            else:
-                break
+            cres = await self.get_remote(nameservers, req, future)
             for rec in cres.an + cres.ns + cres.ar:
                 if rec.ttl > 0 and rec.qtype not in (types.SOA, types.MX):
                     self.cache.add_host(rec)
@@ -167,7 +175,7 @@ class Resolver:
             res.r = cres.r
         return has_result
 
-    async def query(self, fqdn, qtype=types.ANY, timeout=3.0):
+    async def query(self, fqdn, qtype=types.ANY, timeout=None):
         '''Return query result.
 
         Cache queries for hostnames and types to avoid repeated requests at the same time.
@@ -177,7 +185,9 @@ class Resolver:
         if future is None:
             loop = asyncio.get_event_loop()
             future = self.futures[key] = loop.create_future()
-            asyncio.ensure_future(self.do_query(key))
+            asyncio.ensure_future(self.do_query(fqdn, qtype))
+        if timeout is None:
+            timeout = self.timeout
         try:
             res = await asyncio.wait_for(future, timeout)
         except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
@@ -185,11 +195,11 @@ class Resolver:
         else:
             return res
 
-    async def do_query(self, key):
+    async def do_query(self, fqdn, qtype):
         '''
         Starts a query asynchronously, add the future object to cache.
         '''
-        fqdn, qtype = key
+        key = fqdn, qtype
         res = DNSMessage(ra=self.recursive)
         res.qd.append(Record(REQUEST, name=fqdn, qtype=qtype))
         future = self.futures[key]
