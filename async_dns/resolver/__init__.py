@@ -17,12 +17,13 @@ class Resolver:
     recursive = 1
     rootdomains = ['.lan']
 
-    def __init__(self, protocol=UDP, cache=None):
+    def __init__(self, protocol=UDP, cache=None, request_timeout=3.0):
         self.futures = {}
         if cache is None:
             cache = DNSMemCache()
         self.cache = cache
         self.protocol = InternetProtocol.get(protocol)
+        self.request_timeout = request_timeout
 
     async def query_cache(self, res, fqdn, qtype):
         '''Returns a boolean whether a cache hit occurs.'''
@@ -82,7 +83,7 @@ class Resolver:
                     yield address.Address(host, 53)
                     empty = False
 
-    async def request(self, qdata, addr, timeout=3.0, protocol=None):
+    async def request(self, req, addr, protocol=None):
         '''Return response to a request.
 
         Send DNS request data according to `protocol`.
@@ -93,7 +94,7 @@ class Resolver:
             request = tcp.request
         else:
             request = udp.request
-        data = await request(qdata, addr, timeout)
+        data = await request(req, addr, self.request_timeout)
         return data
 
     async def query_remote(self, res, fqdn, qtype):
@@ -107,21 +108,18 @@ class Resolver:
         # look up from other DNS servers
         nameservers = address.NameServers(self.get_nameservers(fqdn))
         cname = [fqdn]
-        req = DNSMessage.request()
+        req = DNSMessage(qr=REQUEST)
         has_result = False
         while not has_result:
             if not cname:
                 break
             # seems that only one qd is supported by most NS
             req.qd = [Record(REQUEST, cname[0], qtype)]
-            qdata = req.pack()
             del cname[:]
-            qid = qdata[:2]
-            for addr in nameservers:
+            for i in range(3):
+                addr = nameservers.get()
                 try:
-                    data = await self.request(qdata, addr)
-                    if not data.startswith(qid):
-                        raise DNSError(-1, 'Message id does not match!')
+                    data = await self.request(req, addr)
                     cres = DNSMessage.parse(data)
                     assert cres.r != 2
                 except (asyncio.TimeoutError, AssertionError):
@@ -217,6 +215,11 @@ class ProxyResolver(Resolver):
         '223.6.6.6',
     ]
     proxies = address.NameServers(DEFAULT_NAMESERVERS)
+
+    def __init__(self, proxies=None, **kw):
+        super().__init__(**kw)
+        if proxies is not None:
+            self.set_proxies(proxies)
 
     def get_nameservers(self, fdqn):
         return self.proxies or super().get_nameservers(fdqn)

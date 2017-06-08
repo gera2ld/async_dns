@@ -1,4 +1,5 @@
-from collections import deque
+import socket
+import random
 from . import types
 
 class InvalidHost(Exception):
@@ -32,19 +33,24 @@ class Address:
         self.host, self.port, self.ip_type = addr.host, addr.port, addr.ip_type
 
     def parse_ipv4_or_domain(self, hostname, port=None, allow_domain=False):
-        host, _, port_s = hostname.partition(':')
-        if _: port = int(port_s)
         try:
-            parts = host.split('.')
-            assert len(parts) == 4
-            for part in parts:
-                assert 0 <= int(part) <= 0xff
-        except AssertionError:
-            if allow_domain:
-                self.host, self.port, self.ip_type = host, port, None
-                return
-            else:
-                raise InvalidHost(host)
+            self.parse_ipv4(hostname, port)
+        except InvalidHost as e:
+            if not allow_domain:
+                raise e
+            host, _, port_s = hostname.partition(':')
+            if _:
+                port = int(port_s)
+            self.host, self.port, self.ip_type = host, port, None
+
+    def parse_ipv4(self, hostname, port=None):
+        host, _, port_s = hostname.partition(':')
+        if _:
+            port = int(port_s)
+        try:
+            socket.inet_pton(socket.AF_INET, host)
+        except OSError:
+            raise InvalidHost(host)
         self.host, self.port, self.ip_type = host, port, types.A
 
     def parse_ipv6(self, hostname, port=None):
@@ -53,18 +59,15 @@ class Address:
             host = hostname[1 : i]
             port_s = hostname[i + 1 :]
             if port_s:
-                assert port_s.startswith(':')
+                if not port_s.startswith(':'):
+                    raise InvalidHost(hostname)
                 port = int(port_s[1:])
         else:
             host = hostname
-        parts = host.split(':')
-        if '.' in parts[-1]:
-            self.parse_ipv4(parts.pop())
-            assert 2 <= len(parts) <= 6
-        else:
-            assert 3 <= len(parts) <= 8
-        for part in parts:
-            assert not part or 0 < int(part, 16) < 0xffff
+        try:
+            socket.inet_pton(socket.AF_INET6, host)
+        except OSError:
+            raise InvalidHost(host)
         self.host, self.port, self.ip_type = host, port, types.AAAA
 
     def to_str(self, default_port = 0):
@@ -81,10 +84,10 @@ class Address:
 class NameServers:
     def __init__(self, nameservers=None, default_port=53):
         self.default_port = default_port
-        self.data = deque()
+        self.data = []
         if nameservers:
             for nameserver in nameservers:
-                self.data.append(Address(nameserver, default_port))
+                self.add(nameserver)
 
     def __bool__(self):
         return len(self.data) > 0
@@ -95,8 +98,12 @@ class NameServers:
     def __repr__(self):
         return '<NameServers [%s]>' % ','.join(map(str, self.data))
 
-    def fail(self, addr):
-        self.data.append(self.data.popleft())
+    def get(self):
+        return random.choice(self.data)
 
     def add(self, addr):
         self.data.append(Address(addr, self.default_port))
+
+    def fail(self, addr):
+        # TODO
+        pass

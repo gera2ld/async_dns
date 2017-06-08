@@ -89,7 +89,7 @@ async def _connect(addr, onconnect, timeout=3.0):
     )
     return protocol
 
-async def request(qdata, addr, timeout=3.0):
+async def request(req, addr, timeout=3.0):
     '''
     Send raw data with a connection pool.
     '''
@@ -111,6 +111,7 @@ async def request(qdata, addr, timeout=3.0):
             raise DNSConnectionError
     loop = asyncio.get_event_loop()
     future = loop.create_future()
+    qdata = req.pack()
     protocol.write_data(future, qdata)
     data = await asyncio.wait_for(future, timeout)
     try:

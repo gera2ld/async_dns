@@ -298,12 +298,6 @@ class DNSMessage:
                 buf.write(rec.pack(names, buf.tell()))
         return buf.getvalue()
 
-    @classmethod
-    def request(cls, qid=None, recursive=1):
-        if qid is None:
-            qid = random.randint(0, 65535)
-        return cls(REQUEST, qid, rd=recursive)
-
     @staticmethod
     def parse_entry(qr, data, l, n):
         res = []
