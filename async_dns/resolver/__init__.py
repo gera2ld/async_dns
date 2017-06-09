@@ -138,6 +138,7 @@ class Resolver:
             req.qd = [Record(REQUEST, cname[0], qtype)]
             del cname[:]
             cres = await self.get_remote(nameservers, req, future)
+            if not cres: break
             for rec in cres.an + cres.ns + cres.ar:
                 if rec.ttl > 0 and rec.qtype not in (types.SOA, types.MX):
                     self.cache.add_host(rec)

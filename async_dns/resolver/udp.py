@@ -42,32 +42,40 @@ class Dispatcher:
         self._qid = 0
         self.ip_type = ip_type
         self.local_addr = local_addr
+        self.initialized = None
 
     def get_qid(self):
         self._qid = (self._qid + 1) % 65536
         return self._qid
 
     async def initialize(self):
+        if self.initialized is not None:
+            await self.initialized
+            return
+        loop = asyncio.get_event_loop()
+        self.initialized = loop.create_future()
         family = socket.AF_INET6 if self.ip_type is types.AAAA else socket.AF_INET
         _transport, self.protocol = await loop.create_datagram_endpoint(
                 CallbackProtocol, family=family, reuse_port=True, local_addr=self.local_addr)
+        self.initialized.set_result(None)
 
     def send(self, req, addr):
         req.qid = self.get_qid()
         return self.protocol.write_data(req.pack(), addr.to_addr())
 
     @classmethod
-    def get(cls, ip_type):
-        return cls.data[ip_type]
-
-Dispatcher.data.update((ip_type, Dispatcher(ip_type)) for ip_type in (types.A, types.AAAA))
-loop = asyncio.get_event_loop()
-loop.run_until_complete(asyncio.wait([dispatcher.initialize() for dispatcher in Dispatcher.data.values()]))
+    async def get(cls, ip_type):
+        dispatcher = cls.data.get(ip_type)
+        if dispatcher is None:
+            dispatcher = Dispatcher(ip_type)
+            cls.data[ip_type] = dispatcher
+        await dispatcher.initialize()
+        return dispatcher
 
 async def request(req, addr, timeout=3.0):
     '''
     Send raw data through UDP.
     '''
-    future = Dispatcher.get(addr.ip_type).send(req, addr)
-    data = await asyncio.wait_for(future, timeout)
+    dispatcher = await Dispatcher.get(addr.ip_type)
+    data = await asyncio.wait_for(dispatcher.send(req, addr), timeout)
     return data
