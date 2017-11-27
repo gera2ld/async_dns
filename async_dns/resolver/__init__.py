@@ -119,7 +119,7 @@ class Resolver:
     async def query_remote(self, res, fqdn, qtype):
         '''Return a boolean indicating whether results are found.
 
-        No cache will be used and requests will sent to remote servers.
+        No cache is used and requests are sent to remote servers.
         '''
         if fqdn.endswith('.in-addr.arpa'):
             # Reverse DNS lookup only occurs locally
@@ -227,8 +227,8 @@ class ProxyResolver(Resolver):
     ]
     proxies = address.NameServers(DEFAULT_NAMESERVERS)
 
-    def __init__(self, proxies=None, **kw):
-        super().__init__(**kw)
+    def __init__(self, *k, proxies=None, **kw):
+        super().__init__(*k, **kw)
         if proxies is not None:
             self.set_proxies(proxies)
 
