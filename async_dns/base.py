@@ -108,6 +108,24 @@ class MX_RData(RData):
         yield struct.pack('!H', self.preference)
         yield pack_name(self.exchange, offset + 4)
 
+class TXT_RData(RData):
+    '''TXT record'''
+
+    rtype = types.TXT
+
+    def __init__(self, data):
+        self.data = data
+        if isinstance(self.data, str):
+            self.data = self.data.encode('utf')
+
+    @classmethod
+    def load(cls, data, l):
+        raise NotImplementedError
+
+    def dump(self, pack_name, offset):
+        yield struct.pack('!B', len(self.data))
+        yield self.data
+
 class SRV_RData(RData):
     '''Service record'''
 
