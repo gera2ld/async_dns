@@ -1,4 +1,5 @@
 import asyncio
+import re
 import unittest
 
 from async_dns.resolver import (
@@ -22,5 +23,6 @@ class TestResolver(unittest.TestCase):
     @async_test
     async def test_query(self):
         resolver = ProxyResolver()
-        res = await resolver.query('www.baidu.com', types.A)
-        self.assertTrue(res.an)
+        res = await resolver.query('www.google.com', types.A)
+        self.assertEqual(res.an[0].name, 'www.google.com')
+        self.assertTrue(re.match( r'\d+\.\d+\.\d+\.\d+', res.an[0].data))
