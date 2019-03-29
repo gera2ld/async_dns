@@ -68,24 +68,6 @@ class Resolver:
             res.ar.append(Record(name=fqdn, qtype=types.A, data='127.0.0.1', ttl=-1))
         return cache_hit
 
-    def get_nameservers(self, fqdn):
-        '''Return a generator of parent domains'''
-        empty = True
-        hosts = []
-        while fqdn and empty:
-            _sub, _, fqdn = fqdn.partition('.')
-            for rec in self.cache.query(fqdn, types.NS):
-                host = rec.data
-                if address.Address(host, allow_domain=True).ip_type is None:
-                    # host is a hostname instead of IP address
-                    for res in self.cache.query(host, A_TYPES):
-                        hosts.append(address.Address(res.data, 53))
-                        empty = False
-                else:
-                    hosts.append(address.Address(host, 53))
-                    empty = False
-        return address.NameServers(hosts)
-
     async def request(self, req, addr, protocol=None):
         '''Return response to a request.
 
@@ -230,7 +212,7 @@ class ProxyResolver(Resolver):
             self.set_proxies(proxies)
 
     def get_nameservers(self, fdqn):
-        return self.proxies or super().get_nameservers(fdqn)
+        return self.proxies
 
     def set_proxies(self, proxies):
         '''Set proxy servers.'''
