@@ -21,7 +21,7 @@ def async_test(func):
 class TestResolver(unittest.TestCase):
 
     @async_test
-    async def test_query(self):
+    async def test_a_query(self):
         resolver = ProxyResolver()
         res = await resolver.query('www.google.com', types.A)
         self.assertEqual(res.an[0].name, 'www.google.com')
