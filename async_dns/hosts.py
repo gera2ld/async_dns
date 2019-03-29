@@ -99,9 +99,3 @@ class Hosts:
         except:
             qtype = qtype,
         return filter(lambda h: h.qtype in qtype, host)
-
-try:
-    utils.get_servers()
-except:
-    pass
-hosts = Hosts(utils.host_file)

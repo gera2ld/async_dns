@@ -58,9 +58,18 @@ class Resolver:
         return cache_hit
 
     def get_nameservers(self, fdqn):
-        return address.NameServers([
-            '8.8.8.8',
-        ])
+        filename='/etc/resolv.conf'
+        nameservers = []
+        with open(filename, 'r') as file:
+            for line in file:
+                if line.startswith('#'):
+                    continue
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+                if parts[0] == 'nameserver':
+                    nameservers.append(parts[1])
+        return address.NameServers(nameservers)
 
     async def request(self, req, addr, protocol=None):
         '''Return response to a request.
