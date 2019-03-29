@@ -15,7 +15,6 @@ class Resolver:
     Asynchronous DNS resolver.
     '''
     recursive = 1
-    rootdomains = ['.lan']
 
     def __init__(self, protocol=UDP, cache=None, request_timeout=3.0, timeout=3.0):
         self.futures = {}
@@ -58,14 +57,6 @@ class Resolver:
                     res.an.append(rec.copy(name=fqdn))
                     if qtype == types.CNAME or rec.qtype != types.CNAME:
                         cache_hit = True
-        if any(fqdn.endswith(root) for root in self.rootdomains):
-            if not cache_hit:
-                res.r = 3
-                cache_hit = True
-            # should only be added for domains that are resolved by this server
-            res.aa = 1  # Authoritative answer
-            res.ns.append(Record(name=fqdn, qtype=types.NS, data='localhost', ttl=-1))
-            res.ar.append(Record(name=fqdn, qtype=types.A, data='127.0.0.1', ttl=-1))
         return cache_hit
 
     def get_nameservers(self, fdqn):
