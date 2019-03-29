@@ -206,8 +206,5 @@ class ProxyResolver(Resolver):
     ]
     proxies = address.NameServers(DEFAULT_NAMESERVERS)
 
-    def __init__(self, *k, **kw):
-        super().__init__(*k, **kw)
-
     def get_nameservers(self, fdqn):
         return self.proxies
