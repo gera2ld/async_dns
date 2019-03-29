@@ -20,6 +20,6 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
     ],
     keywords='async dns asyncio',
-    test_suite='tests.test_resolver',
+    test_suite='test',
     packages=find_packages(exclude=['tests']),
 )
