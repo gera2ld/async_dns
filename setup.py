@@ -1,18 +1,22 @@
-#!python
-# coding=utf-8
-from setuptools import setup, find_packages
+import setuptools
 
-setup(
-    name='async_dns',
-    version='1.0.0',
-    description='Asynchronous DNS client and server',
-    long_description='Asynchronous DNS client and server written in pure Python, based on asyncio.',
-    url='https://github.com/gera2ld/async_dns',
+
+def long_description():
+    with open('README.md', 'r') as file:
+        return file.read()
+
+
+setuptools.setup(
+    name='aiogethostbyname',
+    version='0.0.0',
+    description='aiogethostbyname',
+    long_description=long_description(),
+    long_description_content_type='text/markdown',
+    url='https://github.com/michalc/aiogethostbyname',
     author='Gerald',
     author_email='i@gerald.top',
     license='MIT',
     classifiers=[
-        'Development Status :: 6 - Mature',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.5',
@@ -21,5 +25,5 @@ setup(
     ],
     keywords='async dns asyncio',
     test_suite='test',
-    packages=find_packages(exclude=['tests']),
+    packages=setuptools.find_packages(exclude=['tests']),
 )
