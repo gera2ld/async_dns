@@ -198,13 +198,8 @@ class Resolver:
             future.set_result(res)
 
 class ProxyResolver(Resolver):
-    '''Proxy DNS resolver.
-    Resolve hostnames from remote proxy servers instead of root servers.
-    '''
-    DEFAULT_NAMESERVERS = [
-        '8.8.8.8',
-    ]
-    proxies = address.NameServers(DEFAULT_NAMESERVERS)
 
     def get_nameservers(self, fdqn):
-        return self.proxies
+        return address.NameServers([
+            '8.8.8.8',
+        ])
