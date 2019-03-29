@@ -6,7 +6,6 @@ import os
 from . import logger, types, hosts, Record
 
 __all__ = ['DNSMemCache']
-CACHE_FILE = os.path.expanduser('~/.async_dns/named.cache.txt')
 
 class DNSMemCache(hosts.Hosts):
     '''
