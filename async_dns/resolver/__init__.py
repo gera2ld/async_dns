@@ -15,10 +15,9 @@ class Resolver:
     '''
     recursive = 1
 
-    def __init__(self, protocol=UDP, cache=None, request_timeout=3.0, timeout=3.0):
+    def __init__(self, protocol=UDP, request_timeout=3.0, timeout=3.0):
         self.futures = {}
-        if cache is None:
-            cache = DNSMemCache()
+        cache = DNSMemCache()
         self.cache = cache
         self.protocol = InternetProtocol.get(protocol)
         self.request_timeout = request_timeout
