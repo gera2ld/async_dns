@@ -3,7 +3,7 @@ import re
 import unittest
 
 from async_dns.resolver import (
-    ProxyResolver,
+    Resolver,
 )
 from async_dns import (
     types,
@@ -22,7 +22,7 @@ class TestResolver(unittest.TestCase):
 
     @async_test
     async def test_a_query(self):
-        resolver = ProxyResolver()
+        resolver = Resolver()
         res = await resolver.query('www.google.com', types.A)
         self.assertEqual(res.an[0].name, 'www.google.com')
         self.assertTrue(re.match( r'\d+\.\d+\.\d+\.\d+', res.an[0].data))

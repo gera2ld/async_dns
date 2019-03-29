@@ -6,7 +6,7 @@ import os
 from .. import *
 from . import tcp, udp
 from ..cache import DNSMemCache
-__all__ = ['Resolver', 'ProxyResolver']
+__all__ = ['Resolver']
 
 A_TYPES = types.A, types.AAAA
 
@@ -67,6 +67,11 @@ class Resolver:
             res.ns.append(Record(name=fqdn, qtype=types.NS, data='localhost', ttl=-1))
             res.ar.append(Record(name=fqdn, qtype=types.A, data='127.0.0.1', ttl=-1))
         return cache_hit
+
+    def get_nameservers(self, fdqn):
+        return address.NameServers([
+            '8.8.8.8',
+        ])
 
     async def request(self, req, addr, protocol=None):
         '''Return response to a request.
@@ -196,10 +201,3 @@ class Resolver:
         self.futures.pop(key)
         if not future.cancelled():
             future.set_result(res)
-
-class ProxyResolver(Resolver):
-
-    def get_nameservers(self, fdqn):
-        return address.NameServers([
-            '8.8.8.8',
-        ])
