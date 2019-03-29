@@ -6,7 +6,6 @@ import os
 from .. import *
 from . import tcp, udp
 from ..cache import DNSMemCache
-__all__ = ['Resolver']
 
 A_TYPES = types.A, types.AAAA
 
