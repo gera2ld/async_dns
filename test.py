@@ -1,6 +1,12 @@
-import unittest, asyncio
-from async_dns.resolver import ProxyResolver
-from async_dns import types
+import asyncio
+import unittest
+
+from async_dns.resolver import (
+	ProxyResolver,
+)
+from async_dns import (
+	types,
+)
 
 class TestResolver(unittest.TestCase):
     def test_query(self):
