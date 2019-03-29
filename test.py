@@ -8,7 +8,9 @@ from async_dns import (
 	types,
 )
 
+
 class TestResolver(unittest.TestCase):
+
     def test_query(self):
         loop = asyncio.get_event_loop()
         resolver = ProxyResolver()
