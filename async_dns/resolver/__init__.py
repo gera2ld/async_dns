@@ -220,10 +220,7 @@ class ProxyResolver(Resolver):
     Resolve hostnames from remote proxy servers instead of root servers.
     '''
     DEFAULT_NAMESERVERS = [
-        '114.114.114.114',
-        '180.76.76.76',
-        '223.5.5.5',
-        '223.6.6.6',
+        '8.8.8.8',
     ]
     proxies = address.NameServers(DEFAULT_NAMESERVERS)
 

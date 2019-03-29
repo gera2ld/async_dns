@@ -1,0 +1,25 @@
+version: 2
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test-3.7.1
+jobs:
+  test-3.7.1:
+    docker:
+      - image: python:3.7.1
+    steps:
+      - checkout
+      - run:
+          name: Install coverage and reporter
+          command: |
+            pip install coverage==4.5.2
+            curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+            chmod +x ./cc-test-reporter
+      - run:
+          name: Run tests
+          command: |
+            ./cc-test-reporter before-build
+            coverage run -m setup test -v
+            coverage xml
+            ./cc-test-reporter after-build --exit-code $?
