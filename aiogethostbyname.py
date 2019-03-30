@@ -3,7 +3,6 @@ Asynchronous DNS client
 '''
 import asyncio
 import os
-from async_dns.cache import DNSMemCache
 from async_dns import (
     REQUEST,
     UDP,
@@ -12,6 +11,7 @@ from async_dns import (
     InternetProtocol,
     Record,
     address,
+    hosts,
     types,
     udp,
 )
@@ -27,7 +27,7 @@ class Resolver:
 
     def __init__(self, protocol=UDP, request_timeout=3.0, timeout=3.0):
         self.futures = {}
-        cache = DNSMemCache()
+        cache = hosts.Hosts()
         self.cache = cache
         self.protocol = InternetProtocol.get(protocol)
         self.request_timeout = request_timeout
