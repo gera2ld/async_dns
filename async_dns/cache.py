@@ -15,7 +15,6 @@ class DNSMemCache(hosts.Hosts):
 
     def __init__(self):
         super().__init__()
-        self.add_item('1.0.0.127.in-addr.arpa', types.PTR, self.name)
         self.add_item('localhost', types.A, '127.0.0.1')
 
     def add_item(self, name, qtype, data):
