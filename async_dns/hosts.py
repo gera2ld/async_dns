@@ -31,6 +31,12 @@ class Hosts:
             self.data[key] = item
         self.changed = True
 
+    def add_item(self, name, qtype, data):
+        '''
+        Add an item to cache.
+        '''
+        self.add_host(Record(name=name, data=data, qtype=qtype, ttl=-1))
+
     def get(self, key, default = None):
         # TODO improve cache GC performance
         vs = self.data.get(key)

@@ -17,8 +17,3 @@ class DNSMemCache(hosts.Hosts):
         super().__init__()
         self.add_item('localhost', types.A, '127.0.0.1')
 
-    def add_item(self, name, qtype, data):
-        '''
-        Add an item to cache.
-        '''
-        self.add_host(Record(name=name, data=data, qtype=qtype, ttl=-1))
