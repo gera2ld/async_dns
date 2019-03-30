@@ -3,7 +3,7 @@ Request using UDP protocol.
 '''
 import asyncio
 import socket
-from .. import types
+from . import types
 
 class CallbackProtocol(asyncio.DatagramProtocol):
     '''

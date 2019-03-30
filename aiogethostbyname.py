@@ -3,7 +3,6 @@ Asynchronous DNS client
 '''
 import asyncio
 import os
-from async_dns.resolver import udp
 from async_dns.cache import DNSMemCache
 from async_dns import (
     REQUEST,
@@ -14,6 +13,7 @@ from async_dns import (
     Record,
     address,
     types,
+    udp,
 )
 
 A_TYPES = types.A, types.AAAA
