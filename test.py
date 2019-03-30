@@ -3,10 +3,8 @@ import ipaddress
 import unittest
 
 from aiodnsresolver import (
-    Resolver,
-)
-from async_dns import (
     types,
+    Resolver,
 )
 
 
