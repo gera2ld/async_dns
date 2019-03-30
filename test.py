@@ -26,3 +26,10 @@ class TestResolver(unittest.TestCase):
         res = await resolver.query('www.google.com', types.A)
         self.assertEqual(res.an[0].name, 'www.google.com')
         self.assertIsInstance(ipaddress.ip_address(res.an[0].data), ipaddress.IPv4Address)
+
+    @async_test
+    async def test_aaaa_query(self):
+        resolver = Resolver()
+        res = await resolver.query('www.google.com', types.AAAA)
+        self.assertEqual(res.an[0].name, 'www.google.com')
+        self.assertIsInstance(ipaddress.ip_address(res.an[0].data), ipaddress.IPv6Address)
