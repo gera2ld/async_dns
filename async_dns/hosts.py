@@ -1,5 +1,5 @@
 import os, time
-from . import address, utils, types, Record
+from . import utils, types, Record
 
 class Hosts:
     def __init__(self):
