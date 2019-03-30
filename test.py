@@ -33,3 +33,15 @@ class TestResolver(unittest.TestCase):
         res = await resolver.query('www.google.com', types.AAAA)
         self.assertEqual(res.an[0].name, 'www.google.com')
         self.assertIsInstance(ipaddress.ip_address(res.an[0].data), ipaddress.IPv6Address)
+
+    @async_test
+    async def test_a_query_not_exists(self):
+        resolver = Resolver()
+        res = await resolver.query('doenotexist.charemza.name', types.A)
+        self.assertEqual(len(res.an), 0)
+
+    @async_test
+    async def test_aaaa_query_not_exists(self):
+        resolver = Resolver()
+        res = await resolver.query('doenotexist.charemza.name', types.AAAA)
+        self.assertEqual(len(res.an), 0)
