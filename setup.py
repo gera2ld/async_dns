@@ -7,12 +7,12 @@ def long_description():
 
 
 setuptools.setup(
-    name='aiogethostbyname',
+    name='aiodnsresolver',
     version='0.0.0',
-    description='aiogethostbyname',
+    description='aiodnsresolver',
     long_description=long_description(),
     long_description_content_type='text/markdown',
-    url='https://github.com/michalc/aiogethostbyname',
+    url='https://github.com/michalc/aiodnsresolver',
     author='Gerald',
     author_email='i@gerald.top',
     license='MIT',

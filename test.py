@@ -2,7 +2,7 @@ import asyncio
 import ipaddress
 import unittest
 
-from aiogethostbyname import (
+from aiodnsresolver import (
     Resolver,
 )
 from async_dns import (
