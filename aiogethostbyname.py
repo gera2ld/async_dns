@@ -3,11 +3,10 @@ Asynchronous DNS client
 '''
 import asyncio
 import os
-from async_dns.resolver import tcp, udp
+from async_dns.resolver import udp
 from async_dns.cache import DNSMemCache
 from async_dns import (
     REQUEST,
-    TCP,
     UDP,
     DNSError,
     DNSMessage,
@@ -89,10 +88,7 @@ class Resolver:
         '''
         if protocol is None:
             protocol = self.protocol
-        if protocol is TCP:
-            request = tcp.request
-        else:
-            request = udp.request
+        request = udp.request
         data = await request(req, addr, self.request_timeout)
         return data
 

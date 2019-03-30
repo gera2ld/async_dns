@@ -3,7 +3,7 @@ from . import utils, types
 
 __all__ = [
     'REQUEST', 'RESPONSE', 'DNSError',
-    'InternetProtocol', 'UDP', 'TCP',
+    'InternetProtocol', 'UDP',
     'Record', 'DNSMessage',
 ]
 
@@ -27,7 +27,6 @@ class InternetProtocol:
         return cls.protocols.get(name, UDP)
 
 UDP = InternetProtocol('udp')
-TCP = InternetProtocol('tcp')
 
 class DNSError(Exception):
     errors = {
