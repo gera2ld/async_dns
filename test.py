@@ -20,33 +20,33 @@ class TestResolver(unittest.TestCase):
 
     @async_test
     async def test_a_query(self):
-        resolver = Resolver()
-        res = await resolver('www.google.com', types.A)
+        resolve = Resolver()
+        res = await resolve('www.google.com', types.A)
         self.assertEqual(res.an[0].name, 'www.google.com')
         self.assertIsInstance(ipaddress.ip_address(res.an[0].data), ipaddress.IPv4Address)
 
     @async_test
     async def test_aaaa_query(self):
-        resolver = Resolver()
-        res = await resolver('www.google.com', types.AAAA)
+        resolve = Resolver()
+        res = await resolve('www.google.com', types.AAAA)
         self.assertEqual(res.an[0].name, 'www.google.com')
         self.assertIsInstance(ipaddress.ip_address(res.an[0].data), ipaddress.IPv6Address)
 
     @async_test
     async def test_a_query_not_exists(self):
-        resolver = Resolver()
-        res = await resolver('doenotexist.charemza.name', types.A)
+        resolve = Resolver()
+        res = await resolve('doenotexist.charemza.name', types.A)
         self.assertEqual(len(res.an), 0)
 
     @async_test
     async def test_aaaa_query_not_exists(self):
-        resolver = Resolver()
-        res = await resolver('doenotexist.charemza.name', types.AAAA)
+        resolve = Resolver()
+        res = await resolve('doenotexist.charemza.name', types.AAAA)
         self.assertEqual(len(res.an), 0)
 
     @async_test
     async def test_a_query_cname(self):
-        resolver = Resolver()
-        res = await resolver('support.dnsimple.com', types.A)
+        resolve = Resolver()
+        res = await resolve('support.dnsimple.com', types.A)
         self.assertEqual(res.an[0].name, 'support.dnsimple.com')
         self.assertIsInstance(ipaddress.ip_address(res.an[1].data), ipaddress.IPv4Address)
