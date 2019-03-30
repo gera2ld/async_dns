@@ -86,82 +86,6 @@ class SOA_RData(RData):
         yield pack_name(self.rname, offset + 2 + len(mname))
         yield struct.pack('!LLLLL', self.serial, self.refresh, self.retry, self.expire, self.minimum)
 
-class MX_RData(RData):
-    '''Mail exchanger record'''
-
-    rtype = types.MX
-
-    def __init__(self, *k):
-        self.preference, self.exchange = k
-
-    def __repr__(self):
-        return '<%s-%s: %s>' % (self.type_name, self.preference, self.exchange)
-
-    @classmethod
-    def load(cls, data, l):
-        preference, = struct.unpack('!H', data[l: l + 2])
-        i, exchange = utils.load_name(data, l + 2)
-        return i, cls(preference, exchange)
-
-    def dump(self, pack_name, offset):
-        yield struct.pack('!H', self.preference)
-        yield pack_name(self.exchange, offset + 4)
-
-class SRV_RData(RData):
-    '''Service record'''
-
-    rtype = types.SRV
-
-    def __init__(self, *k):
-        self.priority, self.weight, self.port, self.hostname = k
-
-    def __repr__(self):
-        return '<%s-%s: %s:%s>' % (self.type_name, self.priority, self.hostname, self.port)
-
-    @classmethod
-    def load(cls, data, l):
-        priority, weight, port = struct.unpack('!HHH', data[l: l + 6])
-        i, hostname = utils.load_name(data, l + 6)
-        return i, cls(priority, weight, port, hostname)
-
-    def dump(self, pack_name, offset):
-        yield struct.pack('!HHH', self.priority, self.weight, self.port)
-        yield pack_name(self.hostname, offset + 8)
-
-class NAPTR_RData(RData):
-    '''NAPTR record'''
-
-    rtype = types.NAPTR
-
-    def __init__(self, *k):
-        self.order, self.preference, self.flags, self.service, self.regexp, self.replacement = k
-
-    def __repr__(self):
-        return '<%s-%s-%s: %s %s %s %s>' % (self.type_name, self.order, self.preference, self.flags,
-                                      self.service, self.regexp, self.replacement)
-
-    @classmethod
-    def load(cls, data, l):
-        pos = l
-        order, preference = struct.unpack('!HH', data[pos: pos + 4])
-        pos += 4
-        length = data[pos]
-        pos += 1
-        flags = data[pos: pos + length].decode()
-        pos += length
-        length = data[pos]
-        pos += 1
-        service = data[pos: pos + length].decode()
-        pos += length
-        length = data[pos]
-        pos += 1
-        regexp = data[pos: pos + length].decode()
-        pos += length
-        i, replacement = utils.load_name(data, pos, lower=False)
-        return i, cls(order, preference, flags, service, regexp, replacement)
-
-    def dump(self, pack_name, offset):
-        raise NotImplementedError
 
 class Record:
     def __init__(self, q=RESPONSE, name='', qtype=types.ANY, qclass=1, ttl=0, data=None):
@@ -208,12 +132,6 @@ class Record:
                 self.data = socket.inet_ntoa(data[l: l + dl])
             elif self.qtype == types.AAAA:
                 self.data = socket.inet_ntop(socket.AF_INET6, data[l: l + dl])
-            elif self.qtype == types.MX:
-                _, self.data = MX_RData.load(data, l)
-            elif self.qtype == types.SRV:
-                _, self.data = SRV_RData.load(data, l)
-            elif self.qtype == types.NAPTR:
-                _, self.data = NAPTR_RData.load(data, l)
             elif self.qtype == types.SOA:
                 _, self.data = SOA_RData.load(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
