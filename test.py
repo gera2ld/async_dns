@@ -45,3 +45,10 @@ class TestResolver(unittest.TestCase):
         resolver = Resolver()
         res = await resolver.query('doenotexist.charemza.name', types.AAAA)
         self.assertEqual(len(res.an), 0)
+
+    @async_test
+    async def test_a_query_cname(self):
+        resolver = Resolver()
+        res = await resolver.query('support.dnsimple.com', types.A)
+        self.assertEqual(res.an[0].name, 'support.dnsimple.com')
+        self.assertIsInstance(ipaddress.ip_address(res.an[1].data), ipaddress.IPv4Address)
