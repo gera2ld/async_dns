@@ -1,5 +1,5 @@
 import asyncio
-import re
+import ipaddress
 import unittest
 
 from aiogethostbyname import (
@@ -25,4 +25,4 @@ class TestResolver(unittest.TestCase):
         resolver = Resolver()
         res = await resolver.query('www.google.com', types.A)
         self.assertEqual(res.an[0].name, 'www.google.com')
-        self.assertTrue(re.match( r'\d+\.\d+\.\d+\.\d+', res.an[0].data))
+        self.assertIsInstance(ipaddress.ip_address(res.an[0].data), ipaddress.IPv4Address)
