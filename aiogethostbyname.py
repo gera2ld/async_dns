@@ -3,11 +3,22 @@ Asynchronous DNS client
 '''
 import asyncio
 import os
-from .. import *
-from . import tcp, udp
-from ..cache import DNSMemCache
+from async_dns.resolver import tcp, udp
+from async_dns.cache import DNSMemCache
+from async_dns import (
+    REQUEST,
+    TCP,
+    UDP,
+    DNSError,
+    DNSMessage,
+    InternetProtocol,
+    Record,
+    address,
+    types,
+)
 
 A_TYPES = types.A, types.AAAA
+
 
 class Resolver:
     '''

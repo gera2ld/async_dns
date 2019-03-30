@@ -2,7 +2,7 @@ import asyncio
 import re
 import unittest
 
-from async_dns.resolver import (
+from aiogethostbyname import (
     Resolver,
 )
 from async_dns import (
