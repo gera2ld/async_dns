@@ -5,6 +5,7 @@ class Hosts:
     def __init__(self):
         self.data = {}
         self.changed = False
+        self.add_item('localhost', types.A, '127.0.0.1')
 
     def __bool__(self):
         return bool(self.data)
