@@ -2,11 +2,9 @@ import os, time
 from . import address, utils, types, Record
 
 class Hosts:
-    def __init__(self, filename = None):
+    def __init__(self):
         self.data = {}
         self.changed = False
-        if filename:
-            self.parse_file(filename)
 
     def __bool__(self):
         return bool(self.data)
@@ -18,29 +16,6 @@ class Hosts:
         for k, v in other.data.items():
             item = self.data.setdefault(k, [])
             item.extend(v)
-
-    def parse_file(self, filename):
-        filename = os.path.expanduser(filename)
-        if not filename or not os.path.isfile(filename):
-            return
-        for line in open(filename, 'r'):
-            line = line.strip()
-            if not line or line.startswith('#'): continue
-            addr = None
-            values = []
-            # str.split will discard redundant white spaces
-            for i in line.split():
-                if addr is None:
-                    try:
-                        addr = address.Address(i, 53)
-                    except:
-                        break
-                elif i.startswith('#'):
-                    break
-                else:
-                    values.append(i.lower())
-            for i in values:
-                self.add_host(Record(name=i, qtype=addr.ip_type, ttl=-1, data=addr.host))
 
     def add_host(self, record):
         if record.ttl == 0:
