@@ -26,5 +26,7 @@ setuptools.setup(
     ],
     keywords='async dns asyncio',
     test_suite='test',
-    packages=setuptools.find_packages(exclude=['tests']),
+    py_modules=[
+        'aiodnsresolver',
+    ],
 )
