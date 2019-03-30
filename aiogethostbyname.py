@@ -153,7 +153,7 @@ class Resolver:
                 for ns_r in cres.ns:
                     host = ns_r.data.mname if ns_r.qtype == types.SOA else ns_r.data
                     try:
-                        ns_res = await self.query(host)
+                        ns_res = await self(host)
                         assert ns_res
                     except (AssertionError, asyncio.TimeoutError):
                         pass
@@ -168,7 +168,7 @@ class Resolver:
             res.r = cres.r
         return has_result
 
-    async def query(self, fqdn, qtype=types.ANY, timeout=None):
+    async def __call__(self, fqdn, qtype=types.ANY, timeout=None):
         '''Return query result.
 
         Cache queries for hostnames and types to avoid repeated requests at the same time.
