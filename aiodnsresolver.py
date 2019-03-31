@@ -577,10 +577,10 @@ def udp_requester():
         future = asyncio.Future()
         push_future(req.qid, addr.to_addr(), future)
 
-        sock = await get_socket(addr.to_addr())
-        await loop.sock_sendall(sock, req.pack())
         try:
             with timeout(3.0):
+                sock = await get_socket(addr.to_addr())
+                await loop.sock_sendall(sock, req.pack())
                 result = await future
         except:
             pop_future(qid, addr.to_addr())
