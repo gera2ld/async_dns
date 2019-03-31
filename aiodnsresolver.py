@@ -566,14 +566,10 @@ class Dispatcher:
     data = {}
 
     def __init__(self, ip_type, local_addr=None):
-        self._qid = 0
         self.ip_type = ip_type
         self.local_addr = local_addr
         self.initialized = None
 
-    def get_qid(self):
-        self._qid = (self._qid + 1) % 65536
-        return self._qid
 
     async def initialize(self):
         if self.initialized is not None:
@@ -587,7 +583,6 @@ class Dispatcher:
         self.initialized.set_result(None)
 
     def send(self, req, addr):
-        req.qid = self.get_qid()
         return self.protocol.write_data(req.pack(), addr.to_addr())
 
     @classmethod
@@ -621,6 +616,7 @@ class Resolver:
         self.protocol = InternetProtocol.get(protocol)
         self.request_timeout = request_timeout
         self.timeout = timeout
+        self.qid = 0
 
     async def query_cache(self, res, fqdn, qtype):
         '''Returns a boolean whether a cache hit occurs.'''
@@ -704,7 +700,8 @@ class Resolver:
         # look up from other DNS servers
         nameservers = self.get_nameservers(fqdn)
         cname = [fqdn]
-        req = DNSMessage(qr=REQUEST, qid=0, o=0, aa=0, tc=0, rd=1, ra=0, r=0)
+        self.qid = (self.qid + 1) % 65536
+        req = DNSMessage(qr=REQUEST, qid=self.qid, o=0, aa=0, tc=0, rd=1, ra=0, r=0)
         has_result = False
         key = fqdn, qtype
         future = self.futures.get(key)
