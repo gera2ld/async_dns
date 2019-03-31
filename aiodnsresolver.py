@@ -565,9 +565,8 @@ class CallbackProtocol(asyncio.DatagramProtocol):
 class Dispatcher:
     data = {}
 
-    def __init__(self, ip_type, local_addr=None):
+    def __init__(self, ip_type):
         self.ip_type = ip_type
-        self.local_addr = local_addr
         self.initialized = None
 
 
@@ -579,7 +578,7 @@ class Dispatcher:
         self.initialized = loop.create_future()
         family = socket.AF_INET6 if self.ip_type is types.AAAA else socket.AF_INET
         _transport, self.protocol = await loop.create_datagram_endpoint(
-                CallbackProtocol, family=family, reuse_port=True, local_addr=self.local_addr)
+                CallbackProtocol, family=family, reuse_port=True)
         self.initialized.set_result(None)
 
     def send(self, req, addr):
