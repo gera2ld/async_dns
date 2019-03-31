@@ -702,9 +702,6 @@ class Resolver:
 
         No cache is used and requests are sent to remote servers.
         '''
-        if fqdn.endswith('.in-addr.arpa'):
-            # Reverse DNS lookup only occurs locally
-            return
         # look up from other DNS servers
         nameservers = self.get_nameservers(fqdn)
         cname = [fqdn]
