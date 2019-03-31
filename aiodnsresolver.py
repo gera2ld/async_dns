@@ -554,7 +554,8 @@ def udp_requester():
                 cres = DNSMessage.parse(response_data)
                 pop_future(cres.qid, addr).set_result(cres)
             except Exception as e:
-                pass
+                sock.close()
+                del socks[addr]
 
     async def _get_socket(addr):
         try:
