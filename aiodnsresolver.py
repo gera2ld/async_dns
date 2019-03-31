@@ -190,7 +190,7 @@ class Record:
         self.qtype = qtype
         self.qclass = qclass
         if q == RESPONSE:
-            self.ttl = ttl    # 0 means item should not be cached
+            self.ttl = ttl
             self.data = data
             self.timestamp = int(time.time())
 
