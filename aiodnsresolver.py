@@ -552,7 +552,8 @@ def udp_requester():
             try:
                 response_data = await loop.sock_recv(sock, 512)
                 qid = response_data[:2]
-                pop_future(qid, addr).set_result(response_data)
+                cres = DNSMessage.parse(response_data)
+                pop_future(qid, addr).set_result(cres)
             except Exception as e:
                 pass
 
@@ -661,8 +662,7 @@ class Resolver:
                 break
             addr = nameservers.get()
             try:
-                data = await self.udp_requester(req, addr)
-                cres = DNSMessage.parse(data)
+                cres = await self.udp_requester(req, addr)
                 assert cres.r != 2
             except (asyncio.TimeoutError, AssertionError):
                 nameservers.fail(addr)
