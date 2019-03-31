@@ -26,6 +26,23 @@ class TestResolver(unittest.TestCase):
         self.assertIsInstance(ipaddress.ip_address(res.an[0].data), ipaddress.IPv4Address)
 
     @async_test
+    async def test_a_query_twice_sequential(self):
+        resolve = Resolver()
+        res_a = await resolve('www.google.com', types.A)
+        self.assertIsInstance(ipaddress.ip_address(res_a.an[0].data), ipaddress.IPv4Address)
+
+        res_b = await resolve('www.google.com', types.A)
+        self.assertIsInstance(ipaddress.ip_address(res_b.an[0].data), ipaddress.IPv4Address)
+
+    @async_test
+    async def test_a_query_twice_concurrent(self):
+        resolve = Resolver()
+        res_a = asyncio.ensure_future(resolve('www.google.com', types.A))
+        res_b = asyncio.ensure_future(resolve('www.google.com', types.A))
+        self.assertIsInstance(ipaddress.ip_address((await res_a).an[0].data), ipaddress.IPv4Address)
+        self.assertIsInstance(ipaddress.ip_address((await res_b).an[0].data), ipaddress.IPv4Address)
+
+    @async_test
     async def test_aaaa_query(self):
         resolve = Resolver()
         res = await resolve('www.google.com', types.AAAA)
