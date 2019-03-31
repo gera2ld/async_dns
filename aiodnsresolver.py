@@ -569,7 +569,6 @@ class Dispatcher:
         self.ip_type = ip_type
         self.initialized = None
 
-
     async def initialize(self):
         if self.initialized is not None:
             await self.initialized
@@ -593,13 +592,15 @@ class Dispatcher:
         await dispatcher.initialize()
         return dispatcher
 
-async def udp_request(req, addr, timeout=3.0):
-    '''
-    Send raw data through UDP.
-    '''
-    dispatcher = await Dispatcher.get(addr.ip_type)
-    data = await asyncio.wait_for(dispatcher.send(req, addr), timeout)
-    return data
+
+def udp_requester():
+
+    async def request(req, addr, timeout=3.0):
+        dispatcher = await Dispatcher.get(addr.ip_type)
+        data = await asyncio.wait_for(dispatcher.send(req, addr), timeout)
+        return data
+
+    return request
 
 
 class Resolver:
@@ -615,6 +616,7 @@ class Resolver:
         self.protocol = InternetProtocol.get(protocol)
         self.timeout = timeout
         self.qid = 0
+        self.udp_requester = udp_requester()
 
     async def query_cache(self, res, fqdn, qtype):
         '''Returns a boolean whether a cache hit occurs.'''
@@ -670,7 +672,7 @@ class Resolver:
                 break
             addr = nameservers.get()
             try:
-                data = await udp_request(req, addr)
+                data = await self.udp_requester(req, addr)
                 cres = DNSMessage.parse(data)
                 assert cres.r != 2
             except (asyncio.TimeoutError, AssertionError):
