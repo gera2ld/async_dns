@@ -269,7 +269,7 @@ class Record:
         return buf.getvalue()
 
 class DNSMessage:
-    def __init__(self, qr=RESPONSE, qid=0, o=0, aa=0, tc=0, rd=1, ra=0, r=0):
+    def __init__(self, qr, qid, o, aa, tc, rd, ra, r):
         self.qr = qr      # 0 for request, 1 for response
         self.qid = qid    # id for UDP package
         self.o = o        # opcode: 0 for standard query
@@ -704,7 +704,7 @@ class Resolver:
         # look up from other DNS servers
         nameservers = self.get_nameservers(fqdn)
         cname = [fqdn]
-        req = DNSMessage(qr=REQUEST)
+        req = DNSMessage(qr=REQUEST, qid=0, o=0, aa=0, tc=0, rd=1, ra=0, r=0)
         has_result = False
         key = fqdn, qtype
         future = self.futures.get(key)
@@ -778,7 +778,7 @@ class Resolver:
         Starts a query asynchronously, add the future object to cache.
         '''
         key = fqdn, qtype
-        res = DNSMessage(ra=self.recursive)
+        res = DNSMessage(qr=RESPONSE, ra=self.recursive, qid=0, o=0, aa=0, tc=0, rd=1, r=0)
         res.qd.append(Record(REQUEST, name=fqdn, qtype=qtype))
         future = self.futures[key]
         ret = (
