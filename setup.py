@@ -26,6 +26,9 @@ setuptools.setup(
     ],
     keywords='async dns asyncio',
     test_suite='test',
+    tests_require=[
+        'aiofastforward==0.0.24',
+    ],
     py_modules=[
         'aiodnsresolver',
     ],

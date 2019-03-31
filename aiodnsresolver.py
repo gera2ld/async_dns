@@ -3,6 +3,7 @@ Asynchronous DNS client
 '''
 import asyncio
 import collections
+import contextlib
 import io
 import os
 import random
@@ -531,74 +532,62 @@ class NameServers:
         pass
 
 
-
-class CallbackProtocol(asyncio.DatagramProtocol):
-    '''
-    Protocol class for asyncio connection callback.
-    '''
-
-    def __init__(self):
-        super().__init__()
-        self.transport = None
-        self.futures = {}
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def datagram_received(self, data, addr):
-        qid = data[:2]
-        future = self.futures.pop(qid, None)
-        if future is not None and not future.cancelled():
-            future.set_result(data)
-
-    def write_data(self, data, addr):
-        '''
-        Write data to request.
-        '''
-        qid = data[:2]
-        loop = asyncio.get_event_loop()
-        future = loop.create_future()
-        self.futures[qid] = future
-        self.transport.sendto(data, addr)
-        return future
-
-class Dispatcher:
-    data = {}
-
-    def __init__(self, ip_type):
-        self.ip_type = ip_type
-        self.initialized = None
-
-    async def initialize(self):
-        if self.initialized is not None:
-            await self.initialized
-            return
-        loop = asyncio.get_event_loop()
-        self.initialized = loop.create_future()
-        family = socket.AF_INET6 if self.ip_type is types.AAAA else socket.AF_INET
-        _transport, self.protocol = await loop.create_datagram_endpoint(
-                CallbackProtocol, family=family, reuse_port=True)
-        self.initialized.set_result(None)
-
-    def send(self, req, addr):
-        return self.protocol.write_data(req.pack(), addr.to_addr())
-
-    @classmethod
-    async def get(cls, ip_type):
-        dispatcher = cls.data.get(ip_type)
-        if dispatcher is None:
-            dispatcher = Dispatcher(ip_type)
-            cls.data[ip_type] = dispatcher
-        await dispatcher.initialize()
-        return dispatcher
-
-
 def udp_requester():
 
-    async def request(req, addr, timeout=3.0):
-        dispatcher = await Dispatcher.get(addr.ip_type)
-        data = await asyncio.wait_for(dispatcher.send(req, addr), timeout)
-        return data
+    loop = asyncio.get_event_loop()
+    socks = {}
+    futures = {}
+
+    def push_future(qid, addr, future):
+        futures[(qid, addr)] = future
+        return future
+
+    def pop_future(qid, addr):
+        future = futures[(qid, addr)]
+        del futures[(qid, addr)]
+        return future
+
+    async def read_incoming(sock, addr):
+        while True:
+            try:
+                response_data = await loop.sock_recv(sock, 512)
+                qid = response_data[:2]
+                pop_future(qid, addr).set_result(response_data)
+            except Exception as e:
+                pass
+
+    async def _get_socket(addr):
+        try:
+            return socks[addr]
+        except KeyError:
+            pass
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setblocking(False)
+        await loop.sock_connect(sock, addr)
+        socks[addr] = sock
+        asyncio.ensure_future(read_incoming(sock, addr))
+
+        return sock
+
+    get_socket = deduplicate_concurrent(_get_socket)
+
+    async def request(req, addr):
+        data = req.pack()
+        qid = data[:2]
+        future = asyncio.Future()
+        push_future(qid, addr.to_addr(), future)
+
+        sock = await get_socket(addr.to_addr())
+        await loop.sock_sendall(sock, req.pack())
+        try:
+            with timeout(3.0):
+                result = await future
+        except:
+            pop_future(qid, addr.to_addr())
+            raise
+
+        return result
 
     return request
 
@@ -778,3 +767,60 @@ class Resolver:
         self.futures.pop(key)
         if not future.cancelled():
             future.set_result(res)
+
+
+def deduplicate_concurrent(func):
+
+    concurrent = {}
+
+    async def deduplicated(*args, **kwargs):
+        identifier = (args, tuple(kwargs.items()))
+
+        if identifier in concurrent:
+            return await concurrent[identifier]
+        
+        future = asyncio.Future()
+        concurrent[identifier] = future
+
+        try:
+            result = await func(*args, **kwargs)
+        except BaseException as exception:
+            future.set_exception(exception)
+        else:
+            future.set_result(result)
+        finally:
+            del concurrent[identifier]
+
+        return await future
+
+    return deduplicated
+
+
+@contextlib.contextmanager
+def timeout(max_time):
+
+    cancelling_due_to_timeout = False
+    current_task = \
+        asyncio.current_task() if hasattr(asyncio, 'current_task') else \
+        asyncio.Task.current_task()
+    loop = \
+        asyncio.get_running_loop() if hasattr(asyncio, 'get_running_loop') else \
+        asyncio.get_event_loop()
+
+    def cancel():
+        nonlocal cancelling_due_to_timeout
+        cancelling_due_to_timeout = True
+        current_task.cancel()
+
+    handle = loop.call_later(max_time, cancel)
+
+    try:
+        yield
+    except asyncio.CancelledError:
+        if cancelling_due_to_timeout:
+            raise asyncio.TimeoutError()
+        else:
+            raise
+            
+    finally:
+        handle.cancel()
