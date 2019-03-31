@@ -609,12 +609,11 @@ class Resolver:
     '''
     recursive = 1
 
-    def __init__(self, protocol=UDP, request_timeout=3.0, timeout=3.0):
+    def __init__(self, protocol=UDP, timeout=3.0):
         self.futures = {}
         cache = Hosts()
         self.cache = cache
         self.protocol = InternetProtocol.get(protocol)
-        self.request_timeout = request_timeout
         self.timeout = timeout
         self.qid = 0
 
@@ -671,7 +670,7 @@ class Resolver:
 
         Send DNS request data according to `protocol`.
         '''
-        return await udp_request(req, addr, self.request_timeout)
+        return await udp_request(req, addr, 3.0)
 
     async def get_remote(self, nameservers, req, future=None):
         while True:
