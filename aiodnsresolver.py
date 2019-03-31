@@ -599,7 +599,7 @@ class Dispatcher:
         await dispatcher.initialize()
         return dispatcher
 
-async def upd_request(req, addr, timeout=3.0):
+async def udp_request(req, addr, timeout=3.0):
     '''
     Send raw data through UDP.
     '''
@@ -677,7 +677,7 @@ class Resolver:
         '''
         if protocol is None:
             protocol = self.protocol
-        request = upd_request
+        request = udp_request
         data = await request(req, addr, self.request_timeout)
         return data
 
