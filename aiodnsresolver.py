@@ -670,7 +670,7 @@ class Resolver:
 
         Send DNS request data according to `protocol`.
         '''
-        return await udp_request(req, addr, 3.0)
+        return await udp_request(req, addr)
 
     async def get_remote(self, nameservers, req, future=None):
         while True:
