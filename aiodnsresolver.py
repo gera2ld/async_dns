@@ -677,8 +677,7 @@ class Resolver:
         '''
         if protocol is None:
             protocol = self.protocol
-        request = udp_request
-        data = await request(req, addr, self.request_timeout)
+        data = await udp_request(req, addr, self.request_timeout)
         return data
 
     async def get_remote(self, nameservers, req, future=None):
