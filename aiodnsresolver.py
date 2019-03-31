@@ -551,9 +551,8 @@ def udp_requester():
         while True:
             try:
                 response_data = await loop.sock_recv(sock, 512)
-                qid = response_data[:2]
                 cres = DNSMessage.parse(response_data)
-                pop_future(qid, addr).set_result(cres)
+                pop_future(cres.qid, addr).set_result(cres)
             except Exception as e:
                 pass
 
@@ -574,10 +573,8 @@ def udp_requester():
     get_socket = deduplicate_concurrent(_get_socket)
 
     async def request(req, addr):
-        data = req.pack()
-        qid = data[:2]
         future = asyncio.Future()
-        push_future(qid, addr.to_addr(), future)
+        push_future(req.qid, addr.to_addr(), future)
 
         sock = await get_socket(addr.to_addr())
         await loop.sock_sendall(sock, req.pack())
