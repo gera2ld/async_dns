@@ -666,13 +666,11 @@ class Resolver:
                     nameservers.append(parts[1])
         return NameServers(nameservers)
 
-    async def request(self, req, addr, protocol=None):
+    async def request(self, req, addr):
         '''Return response to a request.
 
         Send DNS request data according to `protocol`.
         '''
-        if protocol is None:
-            protocol = self.protocol
         data = await udp_request(req, addr, self.request_timeout)
         return data
 
