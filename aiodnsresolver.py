@@ -665,20 +665,13 @@ class Resolver:
                     nameservers.append(parts[1])
         return NameServers(nameservers)
 
-    async def request(self, req, addr):
-        '''Return response to a request.
-
-        Send DNS request data according to `protocol`.
-        '''
-        return await udp_request(req, addr)
-
     async def get_remote(self, nameservers, req, future=None):
         while True:
             if future and future.cancelled():
                 break
             addr = nameservers.get()
             try:
-                data = await self.request(req, addr)
+                data = await udp_request(req, addr)
                 cres = DNSMessage.parse(data)
                 assert cres.r != 2
             except (asyncio.TimeoutError, AssertionError):
