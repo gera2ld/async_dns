@@ -10,7 +10,8 @@ def load_name(data, offset, lower=True):
     '''Return the full name and offset from packed data.'''
     parts = []
     cursor = None
-    while True:
+    data_len = len(data)
+    while offset < data_len:
         length = ord(data[offset : offset + 1])
         offset += 1
         if length == 0:

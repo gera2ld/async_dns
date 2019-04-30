@@ -43,7 +43,7 @@ Examples:
 ``` sh
 # Resolve an IP
 $ python3 -m async_dns.resolver www.google.com
-$ python3 -m async_dns.resolver -t mx gmail.com
+$ python3 -m async_dns.resolver -t mx -- gmail.com
 
 # Query via TCP
 $ python3 -m async_dns.resolver -n 127.0.0.1 -p tcp www.google.com
