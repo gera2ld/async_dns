@@ -6,7 +6,7 @@ import struct
 import os
 import io
 
-def load_name(data, offset, lower=True):
+def load_message(data, offset, lower=True):
     '''Return the full name and offset from packed data.'''
     parts = []
     cursor = None
@@ -43,7 +43,7 @@ def get_bits(num, bit_len):
     low = num - (high << bit_len)
     return low, high
 
-def pack_name(name, names, offset=0):
+def pack_message(name, names, offset=0):
     parts = name.split('.')
     buf = io.BytesIO()
     while parts:

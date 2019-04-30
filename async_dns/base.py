@@ -70,8 +70,8 @@ class SOA_RData(RData):
 
     @classmethod
     def load(cls, data, l):
-        i, mname = utils.load_name(data, l)
-        i, rname = utils.load_name(data, i)
+        i, mname = utils.load_message(data, l)
+        i, rname = utils.load_message(data, i)
         (
             serial,
             refresh,
@@ -101,7 +101,7 @@ class MX_RData(RData):
     @classmethod
     def load(cls, data, l):
         preference, = struct.unpack('!H', data[l: l + 2])
-        i, exchange = utils.load_name(data, l + 2)
+        i, exchange = utils.load_message(data, l + 2)
         return i, cls(preference, exchange)
 
     def dump(self, pack_name, offset):
@@ -122,7 +122,7 @@ class SRV_RData(RData):
     @classmethod
     def load(cls, data, l):
         priority, weight, port = struct.unpack('!HHH', data[l: l + 6])
-        i, hostname = utils.load_name(data, l + 6)
+        i, hostname = utils.load_message(data, l + 6)
         return i, cls(priority, weight, port, hostname)
 
     def dump(self, pack_name, offset):
@@ -158,7 +158,7 @@ class NAPTR_RData(RData):
         pos += 1
         regexp = data[pos: pos + length].decode()
         pos += length
-        i, replacement = utils.load_name(data, pos, lower=False)
+        i, replacement = utils.load_message(data, pos, lower=False)
         return i, cls(order, preference, flags, service, regexp, replacement)
 
     def dump(self, pack_name, offset):
@@ -198,7 +198,7 @@ class Record:
             return self
 
     def parse(self, data, l):
-        l, self.name = utils.load_name(data, l)
+        l, self.name = utils.load_message(data, l)
         self.qtype, self.qclass = struct.unpack('!HH', data[l: l + 4])
         l += 4
         if self.q == RESPONSE:
@@ -218,7 +218,7 @@ class Record:
             elif self.qtype == types.SOA:
                 _, self.data = SOA_RData.load(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR, types.TXT):
-                _, self.data = utils.load_name(data, l)
+                _, self.data = utils.load_message(data, l)
             else:
                 self.data = data[l: l + dl]
             l += dl
@@ -226,9 +226,9 @@ class Record:
 
     def pack(self, names, offset=0):
         def pack_name(name, pack_offset):
-            return utils.pack_name(name, names, pack_offset)
+            return utils.pack_message(name, names, pack_offset)
         buf = io.BytesIO()
-        buf.write(utils.pack_name(self.name, names, offset))
+        buf.write(utils.pack_message(self.name, names, offset))
         buf.write(struct.pack('!HH', self.qtype, self.qclass))
         if self.q == RESPONSE:
             if self.ttl < 0:
