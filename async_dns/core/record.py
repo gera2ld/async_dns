@@ -1,33 +1,14 @@
-import random, time, socket, struct, io
+import time, socket, struct, io
 from . import utils, types
 
 __all__ = [
     'REQUEST', 'RESPONSE', 'DNSError',
-    'InternetProtocol', 'UDP', 'TCP',
     'Record', 'DNSMessage',
 ]
 
 REQUEST = 0
 RESPONSE = 1
 MAXAGE = 3600000
-
-class InternetProtocol:
-    protocols = {}
-
-    def __init__(self, name):
-        self.protocol = name
-        self.protocols[name] = self
-
-    @classmethod
-    def get(cls, name):
-        if isinstance(name, cls):
-            return name
-        if isinstance(name, str):
-            name = name.lower()
-        return cls.protocols.get(name, UDP)
-
-UDP = InternetProtocol('udp')
-TCP = InternetProtocol('tcp')
 
 class DNSError(Exception):
     errors = {
@@ -190,12 +171,6 @@ class Record:
             ttl=kw.get('ttl', self.ttl),
             data=kw.get('data', self.data)
         )
-
-    def update(self, other):
-        if (self.name, self.qtype, self.data) == (other.name, other.qtype, other.data):
-            if self.ttl and other.ttl > self.ttl:
-                self.ttl = other.ttl
-            return self
 
     def parse(self, data, l):
         l, self.name = utils.load_message(data, l)

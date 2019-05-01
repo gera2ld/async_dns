@@ -1,5 +1,5 @@
 import unittest
-from async_dns import utils
+from async_dns.core import utils
 
 class TestUtils(unittest.TestCase):
     def test_load_message(self):

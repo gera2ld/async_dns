@@ -3,7 +3,7 @@ Script to resolve hostnames.
 '''
 import argparse
 import asyncio
-from .. import *
+from ..core import Address, types
 from . import ProxyResolver
 
 def _parse_args():
@@ -22,14 +22,14 @@ def _parse_args():
 
 async def resolve_hostname(resolver, hostname, qtype):
     '''Resolve a hostname with the given resolver.'''
-    addr = address.Address(hostname, allow_domain=True)
+    addr = Address(hostname, allow_domain=True)
     if addr.ip_type is None:
         return await resolver.query(hostname, qtype)
     else:
         res = DNSMessage()
         res.qd.append(Record(REQUEST, name=hostname, qtype=addr.ip_type))
         res.an.append(Record(qtype=addr.ip_type, data=hostname))
-        return res
+        return res, False
 
 def resolve_hostnames(args):
     '''Resolve hostnames passed from process arguments.'''
@@ -48,9 +48,13 @@ def resolve_hostnames(args):
     wait = asyncio.wait(results, timeout=3, loop=loop)
     done, _ = loop.run_until_complete(wait)
     for fut in done:
-        res = fut.result()
+        res, _ = fut.result()
         hostname = res.qd[0].name
         for item in res.an:
-            print(hostname, '=>[%s]' % types.get_name(item.qtype), item.data)
+            print('%s [%s] %s' % (
+                hostname,
+                types.get_name(item.qtype),
+                item.data,
+            ))
 
 resolve_hostnames(_parse_args())

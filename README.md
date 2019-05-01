@@ -61,7 +61,8 @@ optional arguments:
   -b BIND, --bind BIND  the address for the server to bind
   --hosts HOSTS         the path of a hosts file
   -x PROXY [PROXY ...], --proxy PROXY [PROXY ...]
-                        the proxy DNS servers
+                        the proxy DNS servers, `none` to serve as a recursive
+                        server, `default` to proxy to default nameservers
   -p {udp,tcp}, --protocol {udp,tcp}
                         whether to use TCP protocol as default to query remote
                         servers
@@ -69,11 +70,14 @@ optional arguments:
 
 Examples:
 ``` sh
-# Start a DNS server on :53 via TCP
+# Start a DNS proxy server on :53 via TCP
 $ python3 -m async_dns.server -b :53 -p tcp --hosts /etc/hosts
 
 # Start a DNS server over TCP proxy
-$ python3 -m async_dns.server -P 8.8.8.8 -p tcp
+$ python3 -m async_dns.server -x 8.8.8.8 -p tcp
+
+# Start a DNS recursive server
+$ python3 -m async_dns.server -x none
 ```
 
 ## API
@@ -85,7 +89,7 @@ from async_dns.resolver import ProxyResolver
 
 loop = asyncio.get_event_loop()
 resolver = ProxyResolver()
-res = loop.run_until_complete(resolver.query('www.baidu.com', types.A))
+res, _from_cache = loop.run_until_complete(resolver.query('www.baidu.com', types.A))
 print(res)
 ```
 

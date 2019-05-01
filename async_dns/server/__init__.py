@@ -2,16 +2,16 @@
 Async DNS server
 '''
 import asyncio
-from .. import DNSMessage, UDP, InternetProtocol
-from .. import resolver, logger, types
-from ..cache import DNSMemCache
+from async_dns.core import *
+from async_dns.core.cache import CacheNode
+from async_dns.resolver import ProxyResolver, Resolver
 
 class DNSMixIn:
     '''DNS handler mix-in'''
 
-    def __init__(self, resolver_, *k, **kw):
+    def __init__(self, resolver, *k, **kw):
         super().__init__(*k, **kw)
-        self.resolver = resolver_
+        self.resolver = resolver
         self.transport = None
         self.addr = None
 
@@ -25,7 +25,7 @@ class DNSMixIn:
 
         msg = DNSMessage.parse(data)
         for question in msg.qd:
-            res = await self.resolver.query(question.name, question.qtype)
+            res, from_cache = await self.resolver.query(question.name, question.qtype)
             if res:
                 res.qid = msg.qid
                 data = res.pack()
@@ -39,8 +39,15 @@ class DNSMixIn:
                 len_data = 0
                 res_code = -1
             logger.info(
-                '[%s|%s|%s] %s %d %d', self.protocol, addr[0],
-                types.get_name(question.qtype), question.name, res_code, len_data)
+                '[%s|%s|%s|%s] %s %d %d',
+                self.protocol,
+                'cache' if from_cache else 'remote',
+                addr[0],
+                types.get_name(question.qtype),
+                question.name,
+                res_code,
+                len_data,
+            )
             break   # only one question is supported
 
 class DNSDatagramProtocol(DNSMixIn, asyncio.DatagramProtocol):
@@ -80,17 +87,21 @@ async def start_server(
     if not isinstance(resolve_protocol, InternetProtocol):
         resolve_protocol = InternetProtocol.get(resolve_protocol)
     tcp_protocol, udp_protocol = protocol_classes
-    cache = DNSMemCache()
-    cache.add_root_servers()
-    proxy_resolver = resolver.ProxyResolver(resolve_protocol, cache)
-    if hosts is not None:
-        proxy_resolver.cache.parse_file(hosts)
-    if proxies:
-        proxy_resolver.set_proxies(proxies)
+    cache = CacheNode()
+    cache.add('1.0.0.127.in-addr.arpa', qtype=types.PTR, data='cache/async_dns')
+    cache.add('localhost', qtype=types.A, data='127.0.0.1')
+    if hosts != 'none':
+        for rec in parse_hosts_file(None if hosts == 'local' else hosts):
+            cache.add(record=rec)
+    if proxies == ['none']:
+        resolver = Resolver(resolve_protocol, cache)
+    else:
+        if proxies == ['default']: proxies = None
+        resolver = ProxyResolver(resolve_protocol, cache, proxies=proxies)
     loop = asyncio.get_event_loop()
     if tcp_protocol:
         server = await loop.create_server(
-            lambda: tcp_protocol(proxy_resolver), host, port)
+            lambda: tcp_protocol(resolver), host, port)
     else:
         server = None
     transport_arr = []
@@ -101,7 +112,7 @@ async def start_server(
             host_arr = ['0.0.0.0', '::']
         for host_bind in host_arr:
             transport, protocol = await loop.create_datagram_endpoint(
-                lambda: udp_protocol(proxy_resolver),
+                lambda: udp_protocol(resolver),
                 local_addr=(host_bind, port))
             transport_arr.append(transport)
-    return server, transport_arr
+    return server, transport_arr, resolver

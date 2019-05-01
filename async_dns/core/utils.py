@@ -3,7 +3,6 @@ Utility methods for parsing and packing DNS record data.
 '''
 
 import struct
-import os
 import io
 
 def load_message(data, offset, lower=True):
@@ -58,10 +57,3 @@ def pack_message(name, names, offset=0):
     else:
         buf.write(b'\0')
     return buf.getvalue()
-
-if os.name == 'nt':
-    from .nt import get_servers
-    host_file = os.path.expandvars(r'%windir%\System32\drivers\etc\hosts')
-elif os.name == 'posix':
-    from .posix import get_servers
-    host_file = '/etc/hosts'

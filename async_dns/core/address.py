@@ -2,6 +2,12 @@ import socket
 import random
 from . import types
 
+__all__ = [
+    'Address',
+    'NameServers',
+    'InvalidHost',
+]
+
 class InvalidHost(Exception):
     pass
 
@@ -105,5 +111,4 @@ class NameServers:
         self.data.append(Address(addr, self.default_port))
 
     def fail(self, addr):
-        # TODO
-        pass
+        self.data.remove(addr)

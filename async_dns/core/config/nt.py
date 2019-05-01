@@ -32,7 +32,7 @@ def _nt_is_enabled(hlm, guid):
     connection_key.Close()
     return False
 
-def get_servers():
+def get_nameservers():
     '''
     Get nameservers from Windows Registry.
     '''
