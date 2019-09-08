@@ -17,7 +17,7 @@ def load_message(data, offset, lower=True):
             if cursor is None:
                 cursor = offset
             break
-        elif length >= 0xc0:
+        if length >= 0xc0:
             if cursor is None:
                 cursor = offset + 1
             offset = (length - 0xc0) * 256 + ord(data[offset : offset + 1])

@@ -2,7 +2,6 @@
 This module starts a DNS server according to console arguments.
 '''
 import argparse
-import logging
 import asyncio
 from . import start_server
 from ..core import logger, Address

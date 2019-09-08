@@ -16,6 +16,8 @@ class Resolver:
     '''
     name = 'AsyncDNSResolver'
     recursive = 1
+
+    # If listed in root domains, the result will be regarded as authorative
     rootdomains = ['.lan']
 
     def __init__(self, protocol=UDP, cache=None, request_timeout=3.0, timeout=3.0):
@@ -64,6 +66,7 @@ class Resolver:
                     cache_hit = True
         if any(fqdn.endswith(root) for root in self.rootdomains):
             if not cache_hit:
+                # not found
                 res.r = 3
                 cache_hit = True
             # should only be added for domains that are resolved by this server

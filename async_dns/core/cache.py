@@ -39,6 +39,8 @@ class CacheNode:
         for key in keys:
             child = current.children.get(key)
             if child is None:
+                child = current.children.get('*')
+            if child is None:
                 if not touch: return
                 child = CacheNode()
                 current.children[key] = child
