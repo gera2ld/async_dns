@@ -158,9 +158,9 @@ class Record:
 
     def __repr__(self):
         if self.q == REQUEST:
-            return str((self.name, types.get_name(self.qtype)))
+            return f'<Record type=request qtype={types.get_name(self.qtype)} name={self.name}>'
         else:
-            return str((self.name, types.get_name(self.qtype), self.data, self.ttl))
+            return f'<Record type=response qtype={types.get_name(self.qtype)} name={self.name} ttl={self.ttl} data={self.data}>'
 
     def copy(self, **kw):
         return Record(

@@ -39,7 +39,9 @@ class Resolver:
         # if cached CNAME
         cname = list(self.cache.query(fqdn, types.CNAME))
         if cname:
-            res.an.extend(cname)
+            res.an.extend(rec.copy(name=fqdn) for rec in cname)
+            if all(rec.ttl < 0 for rec in cname):
+                res.aa = 1
             if not self.recursive or qtype == types.CNAME:
                 return True
             for rec in cname:
