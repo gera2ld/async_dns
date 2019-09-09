@@ -21,6 +21,9 @@ class Address:
     def __repr__(self):
         return self.to_str()
 
+    def __hash__(self):
+        return hash(self.to_addr())
+
     def parse(self, hostname, port=0, allow_domain=False):
         if isinstance(hostname, tuple):
             self.parse_tuple(hostname, allow_domain)
@@ -90,7 +93,8 @@ class Address:
 class NameServers:
     def __init__(self, nameservers=None, default_port=53):
         self.default_port = default_port
-        self.data = []
+        self.data = set()
+        self._tuple = ()
         if nameservers:
             for nameserver in nameservers:
                 self.add(nameserver)
@@ -99,16 +103,18 @@ class NameServers:
         return len(self.data) > 0
 
     def __iter__(self):
-        return iter(tuple(self.data))
+        return iter(self._tuple)
 
     def __repr__(self):
         return '<NameServers [%s]>' % ','.join(map(str, self.data))
 
     def get(self):
-        return random.choice(self.data)
+        return random.choice(self._tuple)
 
     def add(self, addr):
-        self.data.append(Address(addr, self.default_port))
+        self.data.add(Address(addr, self.default_port))
+        self._tuple = tuple(self.data)
 
     def fail(self, addr):
-        self.data.remove(addr)
+        self.data.discard(addr)
+        self._tuple = tuple(self.data)

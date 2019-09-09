@@ -5,6 +5,18 @@ Utility methods for parsing and packing DNS record data.
 import struct
 import io
 
+class ParseError(Exception):
+    def __init__(self, data, offset):
+        super().__init__()
+        self.data = data
+        self.offset = offset
+
+    def __repr__(self):
+        return f'''<ParseError
+    offset={self.offset}
+    data_len={len(self.data)}
+    data={self.data}>'''
+
 def load_message(data, offset, lower=True):
     '''Return the full name and offset from packed data.'''
     parts = []
@@ -24,6 +36,7 @@ def load_message(data, offset, lower=True):
             continue
         parts.append(data[offset : offset + length])
         offset += length
+    assert cursor is not None, ParseError(data, offset)
     data = b'.'.join(parts).decode()
     if lower:
         data = data.lower()

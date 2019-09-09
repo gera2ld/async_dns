@@ -91,6 +91,7 @@ class Resolver:
                 else:
                     hosts.append(Address(host, 53))
                     empty = False
+        logger.debug('[get_nameservers][%s] %s', fqdn, hosts)
         return NameServers(hosts)
 
     async def request(self, req, addr, protocol=None):
@@ -240,8 +241,9 @@ class ProxyResolver(Resolver):
         super().__init__(*k, **kw)
         self.set_proxies(proxies or self.default_nameservers)
 
-    def get_nameservers(self, fdqn):
-        return self.proxies or super().get_nameservers(fdqn)
+    def get_nameservers(self, fqdn):
+        logger.debug('[get_proxy_nameservers][%s] %s', fqdn, self.proxies)
+        return NameServers(self.proxies) if self.proxies else super().get_nameservers(fqdn)
 
     def add_root_servers(self):
         pass
