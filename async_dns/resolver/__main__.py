@@ -29,7 +29,7 @@ async def resolve_hostname(resolver, hostname, qtype):
         res = DNSMessage()
         res.qd.append(Record(REQUEST, name=hostname, qtype=addr.ip_type))
         res.an.append(Record(qtype=addr.ip_type, data=hostname))
-        return res, False
+        return res
 
 def resolve_hostnames(args):
     '''Resolve hostnames passed from process arguments.'''
@@ -48,7 +48,7 @@ def resolve_hostnames(args):
     wait = asyncio.wait(results, timeout=3, loop=loop)
     done, _ = loop.run_until_complete(wait)
     for fut in done:
-        res, _ = fut.result()
+        res = fut.result()
         hostname = res.qd[0].name
         for item in res.an:
             print('%s [%s] %s' % (

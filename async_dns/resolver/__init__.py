@@ -45,7 +45,7 @@ class Resolver:
             if not self.recursive or qtype == types.CNAME:
                 return True
             for rec in cname:
-                cres, _ = await self.query(rec.data, qtype)
+                cres = await self.query(rec.data, qtype)
                 if cres is None or cres.r > 0:
                     continue
                 res.an.extend(cres.an)
@@ -177,7 +177,7 @@ class Resolver:
                 for ns_r in cres.ns:
                     host = ns_r.data.mname if ns_r.qtype == types.SOA else ns_r.data
                     try:
-                        ns_res, _ = await self.query(host)
+                        ns_res = await self.query(host)
                         assert ns_res
                     except (AssertionError, asyncio.TimeoutError):
                         pass
@@ -197,20 +197,28 @@ class Resolver:
 
         Cache queries for hostnames and types to avoid repeated requests at the same time.
         '''
-        key = fqdn, qtype
-        future = self.futures.get(key)
-        if future is None:
-            loop = asyncio.get_event_loop()
-            future = self.futures[key] = loop.create_future()
-            asyncio.ensure_future(self.do_query(fqdn, qtype))
+        res, _from_cache = await self.query_with_timeout(fqdn, qtype, timeout)
+        return res
+
+    async def query_with_timeout(self, fqdn, qtype, timeout=None):
         if timeout is None:
             timeout = self.timeout
+        future = self.memoized_query(fqdn, qtype)
         try:
             res, from_cache = await asyncio.wait_for(future, timeout)
         except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
             return None, False
         else:
             return res, from_cache
+
+    def memoized_query(self, fqdn, qtype):
+        key = fqdn, qtype
+        future = self.futures.get(key)
+        if future is None:
+            loop = asyncio.get_event_loop()
+            future = self.futures[key] = loop.create_future()
+            asyncio.ensure_future(self.do_query(fqdn, qtype))
+        return future
 
     async def do_query(self, fqdn, qtype):
         '''

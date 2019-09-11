@@ -25,7 +25,7 @@ class DNSMixIn:
 
         msg = DNSMessage.parse(data)
         for question in msg.qd:
-            res, from_cache = await self.resolver.query(question.name, question.qtype)
+            res, from_cache = await self.resolver.query_with_timeout(question.name, question.qtype)
             if res:
                 res.qid = msg.qid
                 data = res.pack()
