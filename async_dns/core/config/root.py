@@ -12,6 +12,9 @@ __all__ = [
 
 CACHE_FILE = os.path.expanduser('~/.async_dns/named.cache.txt')
 
+def get_nameservers():
+    return []
+
 def get_name_cache(
         url='ftp://rs.internic.net/domain/named.cache',
         filename=CACHE_FILE, timeout=10):
