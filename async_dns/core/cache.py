@@ -12,7 +12,6 @@ class CacheValue:
         results = self.data.get(qtype)
         if results is not None:
             keys = list(results.keys())
-            length = len(keys)
             for key in keys:
                 record = results[key]
                 if self.check_ttl(record):

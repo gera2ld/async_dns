@@ -207,6 +207,8 @@ class Resolver:
         try:
             res, from_cache = await asyncio.wait_for(future, timeout)
         except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
+            import traceback
+            logger.debug('[query_with_timeout][%s][%s] %s', types.get_name(qtype), fqdn, traceback.format_exc())
             return None, False
         else:
             return res, from_cache

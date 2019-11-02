@@ -3,7 +3,7 @@ Script to resolve hostnames.
 '''
 import argparse
 import asyncio
-from ..core import Address, types
+from async_dns.core import *
 from . import ProxyResolver
 
 def _parse_args():
