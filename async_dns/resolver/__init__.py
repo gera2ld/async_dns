@@ -108,10 +108,7 @@ class ProxyResolver(Resolver):
     Resolve hostnames from remote proxy servers instead of root servers.
     '''
     name = 'AsyncDNSProxyResolver'
-    default_nameservers = [
-        '223.5.5.5',
-        '223.6.6.6',
-    ]
+    default_nameservers = core_config['default_nameservers']
     recursive = 0
 
     def __init__(self, *k, proxies=None, **kw):

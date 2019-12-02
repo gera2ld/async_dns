@@ -3,14 +3,32 @@ Cache module.
 '''
 
 import os
+import json
 from .. import logger, types, Record
 
 __all__ = [
+    'core_config',
     'get_name_cache',
     'get_root_servers',
 ]
 
-CACHE_FILE = os.path.expanduser('~/.async_dns/named.cache.txt')
+CONFIG_DIR = os.path.expanduser('~/.config/async_dns')
+os.makedirs(CONFIG_DIR, exist_ok=True)
+CACHE_FILE = os.path.join(CONFIG_DIR, 'named.cache.txt')
+
+try:
+    user_config = json.load(open(os.path.join(CONFIG_DIR, 'config.json')))
+except:
+    user_config = None
+core_config = {
+    'default_nameservers': [
+        '8.8.8.8',
+        '8.8.4.4',
+    ],
+}
+if user_config is not None:
+    core_config.update(user_config)
+    del user_config
 
 def get_nameservers():
     return []
@@ -35,7 +53,6 @@ def get_root_servers(filename=CACHE_FILE):
     Load root servers from cache.
     '''
     if not os.path.isfile(filename):
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
         get_name_cache(filename=filename)
     # in case failed fetching named.cache
     if not os.path.isfile(filename):
