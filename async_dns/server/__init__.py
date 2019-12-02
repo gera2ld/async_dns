@@ -25,7 +25,7 @@ class DNSMixIn:
 
         msg = DNSMessage.parse(data)
         for question in msg.qd:
-            res, from_cache = await self.resolver.query_with_timeout(question.name, question.qtype)
+            res, from_cache = await self.resolver.query_with_cache(question.name, question.qtype)
             if res:
                 res.qid = msg.qid
                 data = res.pack()
@@ -88,7 +88,7 @@ async def start_server(
         resolve_protocol = InternetProtocol.get(resolve_protocol)
     tcp_protocol, udp_protocol = protocol_classes
     cache = CacheNode()
-    cache.add('1.0.0.127.in-addr.arpa', qtype=types.PTR, data='cache/async_dns')
+    cache.add('1.0.0.127.in-addr.arpa', qtype=types.PTR, data='async-dns.local')
     cache.add('localhost', qtype=types.A, data='127.0.0.1')
     if hosts != 'none':
         for rec in parse_hosts_file(None if hosts == 'local' else hosts):

@@ -6,9 +6,17 @@ __all__ = [
     'Address',
     'NameServers',
     'InvalidHost',
+    'InvalidIP',
+    'InvalidNameServer',
 ]
 
 class InvalidHost(Exception):
+    pass
+
+class InvalidIP(Exception):
+    pass
+
+class InvalidNameServer(Exception):
     pass
 
 class Address:
@@ -90,6 +98,11 @@ class Address:
     def to_addr(self):
         return self.host, self.port
 
+    def to_ptr(self):
+        if self.ip_type is types.A:
+            return '.'.join(reversed(self.host.split('.'))) + '.in-addr.arpa'
+        raise InvalidIP(self.host)
+
 class NameServers:
     def __init__(self, nameservers=None, default_port=53):
         self.default_port = default_port
@@ -109,7 +122,7 @@ class NameServers:
         return '<NameServers [%s]>' % ','.join(map(str, self.data))
 
     def get(self):
-        return random.choice(self._tuple)
+        return random.choice(self._tuple) if self.data else None
 
     def add(self, addr):
         self.data.add(Address(addr, self.default_port))

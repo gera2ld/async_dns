@@ -241,9 +241,12 @@ class DNSMessage:
         self.ra = ra      # Recursion Available for response
         self.r = r        # rcode: 0 for success
         self.qd = []
-        self.an = []
-        self.ns = []
-        self.ar = []
+        self.an = []      # answers
+        self.ns = []      # authority records, aka nameservers
+        self.ar = []      # additional records
+
+    def __bool__(self):
+        return any(map(len, (self.an, self.ns)))
 
     def __getitem__(self, i):
         return self.an[i]
