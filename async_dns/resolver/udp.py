@@ -24,7 +24,7 @@ class CallbackProtocol(asyncio.DatagramProtocol):
         if future is not None and not future.cancelled():
             future.set_result(data)
 
-    def write_data(self, data, addr):
+    def write_data(self, data, addr, timeout):
         '''
         Write data to request.
         '''
@@ -32,6 +32,12 @@ class CallbackProtocol(asyncio.DatagramProtocol):
         loop = asyncio.get_event_loop()
         future = loop.create_future()
         self.futures[qid] = future
+        def clear(fut=None):
+            if not future.done():
+                future.cancel()
+            self.futures.pop(qid, None)
+        future.add_done_callback(clear)
+        loop.call_later(timeout, clear)
         self.transport.sendto(data, addr)
         return future
 
@@ -59,9 +65,9 @@ class Dispatcher:
                 CallbackProtocol, family=family, reuse_port=True, local_addr=self.local_addr)
         self.initialized.set_result(None)
 
-    def send(self, req, addr):
+    def send(self, req, addr, timeout):
         req.qid = self.get_qid()
-        return self.protocol.write_data(req.pack(), addr.to_addr())
+        return self.protocol.write_data(req.pack(), addr.to_addr(), timeout)
 
     @classmethod
     async def get(cls, ip_type):
@@ -77,5 +83,5 @@ async def request(req, addr, timeout=3.0):
     Send raw data through UDP.
     '''
     dispatcher = await Dispatcher.get(addr.ip_type)
-    data = await asyncio.wait_for(dispatcher.send(req, addr), timeout)
+    data = await dispatcher.send(req, addr, timeout)
     return data
