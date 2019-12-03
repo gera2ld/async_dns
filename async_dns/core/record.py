@@ -289,7 +289,7 @@ class DNSMessage:
     def parse(cls, data, qid=None):
         rqid, x, qd, an, ns, ar = struct.unpack('!HHHHHH', data[:12])
         if qid is not None and qid != rqid:
-            raise DNSError(-1, 'Message id does not match!')
+            raise DNSError(-1, 'Transaction ID mismatch')
         r, x = utils.get_bits(x, 4)   # rcode: 0 for no error
         z, x = utils.get_bits(x, 3)   # reserved
         ra, x = utils.get_bits(x, 1)  # recursion available

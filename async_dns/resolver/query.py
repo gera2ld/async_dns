@@ -149,11 +149,14 @@ class Query:
                 data = await self.request_once(req, addr)
                 inter_res = DNSMessage.parse(data)
                 logger.debug('[request_remote] %s', inter_res)
-                assert inter_res.r != 2
-            except (asyncio.TimeoutError, AssertionError):
+                if inter_res.qd[0].name != req.qd[0].name:
+                    raise DNSError(-1, 'Question section mismatch')
+                assert inter_res.r != 2, 'Remote server fail'
+            except (asyncio.TimeoutError, AssertionError) as e:
+                logger.debug('[request_remote][server_error] %s', e)
                 nameservers.fail(addr)
             except DNSError:
-                pass
+                logger.debug('[request_remote][dns_error] %s', e)
             else:
                 return inter_res
 
