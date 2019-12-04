@@ -108,6 +108,7 @@ class NameServers:
         self.default_port = default_port
         self.data = set()
         self._tuple = ()
+        self._info = {}
         if nameservers:
             for nameserver in nameservers:
                 self.add(nameserver)
@@ -124,10 +125,25 @@ class NameServers:
     def get(self):
         return random.choice(self._tuple) if self.data else None
 
+    def update(self):
+        self._tuple = tuple(self.data)
+
     def add(self, addr):
         self.data.add(Address(addr, self.default_port))
-        self._tuple = tuple(self.data)
+        self.update()
+
+    def success(self, addr):
+        info = self._info.setdefault(addr, {})
+        info['delay'] = max(info.get('delay', 1) // 2, 1)
 
     def fail(self, addr):
         self.data.discard(addr)
-        self._tuple = tuple(self.data)
+        self.update()
+        info = self._info.setdefault(addr, {})
+        time = min(info.get('delay', 1) * 2, 24 * 60 * 60)
+        info['delay'] = time
+        def add_back():
+            self.data.add(addr)
+            self.update()
+        loop = asyncio.get_event_loop()
+        loop.call_later(5, add_back)

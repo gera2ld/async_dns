@@ -156,11 +156,14 @@ class Query:
                 assert inter_res.r != 2, 'Remote server fail'
             except (asyncio.TimeoutError, AssertionError) as e:
                 logger.debug('[request_remote][server_error] %s', e)
-                nameservers.fail(addr)
-            except DNSError:
+            except DNSError as e:
                 logger.debug('[request_remote][dns_error] %s', e)
+            except Exception as e:
+                logger.error('[request_remote][error] %s', e)
             else:
+                nameservers.success(addr)
                 return inter_res
+            nameservers.fail(addr)
 
     async def request_once(self, req, addr, protocol=None):
         '''Return response to a request.
