@@ -3,7 +3,7 @@ Request using UDP protocol.
 '''
 import asyncio
 import socket
-from .. import types
+from .. import types, RandId
 
 class CallbackProtocol(asyncio.DatagramProtocol):
     '''
@@ -45,14 +45,10 @@ class Dispatcher:
     data = {}
 
     def __init__(self, ip_type, local_addr=None):
-        self._qid = 0
         self.ip_type = ip_type
         self.local_addr = local_addr
         self.initialized = None
-
-    def get_qid(self):
-        self._qid = (self._qid + 1) % 65536
-        return self._qid
+        self.rand_id = RandId()
 
     async def initialize(self):
         if self.initialized is not None:
@@ -65,9 +61,13 @@ class Dispatcher:
                 CallbackProtocol, family=family, reuse_port=True, local_addr=self.local_addr)
         self.initialized.set_result(None)
 
-    def send(self, req, addr, timeout):
-        req.qid = self.get_qid()
-        return self.protocol.write_data(req.pack(), addr.to_addr(), timeout)
+    async def send(self, req, addr, timeout):
+        qid = self.rand_id.get()
+        req.qid = qid
+        try:
+            return await self.protocol.write_data(req.pack(), addr.to_addr(), timeout)
+        finally:
+            self.rand_id.put(qid)
 
     @classmethod
     async def get(cls, ip_type):
