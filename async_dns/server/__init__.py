@@ -109,7 +109,7 @@ async def start_server(
         if host:
             host_arr = [host] if isinstance(host, str) else host
         else:
-            host_arr = ['0.0.0.0', '::']
+            host_arr = ['::'] # '::' means both IPv4 and IPv6
         for host_bind in host_arr:
             transport, protocol = await loop.create_datagram_endpoint(
                 lambda: udp_protocol(resolver),
