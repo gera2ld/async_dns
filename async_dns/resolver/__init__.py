@@ -20,7 +20,7 @@ class Resolver:
     # If listed in root domains, the result will be regarded as authorative
     rootdomains = ['.lan']
 
-    def __init__(self, protocol=UDP, cache=None, request_timeout=3.0, timeout=3.0):
+    def __init__(self, protocol=UDP, cache=None, request_timeout=3.0, timeout=5.0):
         self.futures = {}
         if cache is None:
             cache = CacheNode()
@@ -34,7 +34,7 @@ class Resolver:
         for rec in get_root_servers():
             self.cache.add(record=rec)
 
-    async def query(self, fqdn, qtype=types.ANY, timeout=None):
+    async def query(self, fqdn, qtype=types.ANY, timeout=None, tick=5):
         '''Return query result.
 
         Cache queries for hostnames and types to avoid repeated requests at the same time.
@@ -42,10 +42,10 @@ class Resolver:
         result, _from_cache = await self.query_with_cache(fqdn, qtype, timeout)
         return result
 
-    async def query_with_cache(self, fqdn, qtype, timeout=None):
+    async def query_with_cache(self, fqdn, qtype, timeout=None, tick=5):
         if timeout is None:
             timeout = self.timeout
-        future = self.memoized_query(fqdn, qtype)
+        future = self.memoized_query(fqdn, qtype, tick)
         try:
             return await asyncio.wait_for(future, timeout)
         except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
@@ -53,7 +53,7 @@ class Resolver:
             logger.debug('[query_with_cache][%s][%s] %s', types.get_name(qtype), fqdn, traceback.format_exc())
             return None, False
 
-    def memoized_query(self, fqdn, qtype):
+    def memoized_query(self, fqdn, qtype, tick):
         if fqdn.endswith('.'):
             fqdn = fqdn[:-1]
         if qtype is types.ANY:
@@ -69,7 +69,8 @@ class Resolver:
         future = self.futures.get(key)
         if future is None:
             loop = asyncio.get_event_loop()
-            query = Query(self, loop, fqdn, qtype)
+            assert tick > 1, 'Maximum nested query times exceeded'
+            query = Query(self, loop, fqdn, qtype, tick - 1)
             future = query.future
             self.futures[key] = future
             def clear(future):

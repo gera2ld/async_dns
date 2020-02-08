@@ -8,11 +8,12 @@ RESOLVED = 1
 REJECTED = 2
 
 class Query:
-    def __init__(self, resolver, loop, fqdn, qtype):
+    def __init__(self, resolver, loop, fqdn, qtype, tick):
         self.loop = loop
         self.resolver = resolver
         self.fqdn = fqdn
         self.qtype = qtype
+        self.tick = tick
         self.future = loop.create_future()
         self.from_cache = False
         self._status = PENDING
@@ -31,6 +32,7 @@ class Query:
                     if self.from_cache: break
                 if not self.future.cancelled():
                     remote_res = await self.query_remote(domain, nameservers)
+                    logger.debug('[query_remote][%s][%s] %s', types.get_name(self.qtype), domain, remote_res)
                     if remote_res is None: break
                     domain, nameservers = remote_res
         except Exception as e:
@@ -120,15 +122,27 @@ class Query:
         if not has_ns:
             result.r = 2
             return
+        # load recursive name servers
         nsip_map = {}
         for rec in inter_res.ar:
             nsip_map[rec.name, rec.qtype] = rec.data
+        hosts = [rec.data.mname if rec.qtype == types.SOA else rec.data for rec in inter_res.ns]
         nsips = []
-        for rec in inter_res.ns:
-            host = rec.data.mname if rec.qtype == types.SOA else rec.data
+        for host in hosts:
             ip = nsip_map.get((host, types.A))
             if ip is not None:
                 nsips.append(ip)
+        # query ips of name servers
+        if not nsips and hosts:
+            self.tick -= 1
+            try:
+                dns_res = await asyncio.shield(self.resolver.query(hosts[0], types.A, tick=self.tick))
+            except:
+                dns_res = None
+            if dns_res:
+                for rec in dns_res.an:
+                    if rec.qtype == types.A:
+                        nsips.append(rec.data)
         return domain, NameServers(nsips)
 
     async def query_remote_once(self, domain, nameservers=None):
@@ -137,7 +151,7 @@ class Query:
         if nameservers is None:
             nameservers = resolver.get_nameservers(domain)
         req.qd = [Record(REQUEST, domain, self.qtype)]
-        logger.debug('[query_remote][%s][%s] %s', types.get_name(self.qtype), domain, nameservers)
+        logger.debug('[query_remote_once][%s][%s] %s', types.get_name(self.qtype), domain, nameservers)
         inter_res = await self.request_remote(nameservers, req)
         resolver.cache_message(inter_res)
         return inter_res

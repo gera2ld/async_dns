@@ -25,7 +25,14 @@ class DNSMixIn:
 
         msg = DNSMessage.parse(data)
         for question in msg.qd:
-            res, from_cache = await self.resolver.query_with_cache(question.name, question.qtype)
+            try:
+                error = None
+                res, from_cache = await self.resolver.query_with_cache(question.name, question.qtype)
+            except Exception as e:
+                import traceback
+                logger.debug('[server_handle][%s][%s] %s', types.get_name(question.qtype), question.name, traceback.format_exc())
+                error = str(e)
+                res, from_cache = None, None
             if res:
                 res.qid = msg.qid
                 data = res.pack()
@@ -39,7 +46,7 @@ class DNSMixIn:
                 len_data = 0
                 res_code = -1
             logger.info(
-                '[%s|%s|%s|%s] %s %d %d',
+                '[%s|%s|%s|%s] %s %d %d %s',
                 self.protocol,
                 'cache' if from_cache else 'remote',
                 addr[0],
@@ -47,6 +54,7 @@ class DNSMixIn:
                 question.name,
                 res_code,
                 len_data,
+                error or '',
             )
             break   # only one question is supported
 
