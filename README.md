@@ -93,6 +93,16 @@ res = loop.run_until_complete(resolver.query('www.baidu.com', types.A))
 print(res)
 ```
 
+ProxyResolver supports routing based on domains:
+
+```python
+resolver = ProxyResolver(proxies=[
+    ('*.lan', ['192.168.1.1']),                        # query '192.168.1.1' for '*.lan' domains
+    (lambda d: d.endswith('.local'), ['127.0.0.1']),   # query 127.0.0.1 for domains ending with '.local'
+    (None, ['8.8.8.8', '8.8.4.4']),                    # None matches all others
+])
+```
+
 ## Test
 
 ``` sh
