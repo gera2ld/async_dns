@@ -255,7 +255,8 @@ class DNSMessage:
         return iter(self.an)
 
     def __repr__(self):
-        return 'QD: %s\nAN: %s\nNS: %s\nAR: %s' % (self.qd, self.an, self.ns, self.ar)
+        return '<DNSMessage type=%s qid=%d r=%d QD=%s AN=%s NS=%s AR=%s>' % (
+                self.qr, self.qid, self.r, self.qd, self.an, self.ns, self.ar)
 
     def pack(self):
         z = 0

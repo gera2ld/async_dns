@@ -33,7 +33,7 @@ class DNSMixIn:
                 logger.debug('[server_handle][%s][%s] %s', types.get_name(question.qtype), question.name, traceback.format_exc())
                 error = str(e)
                 res, from_cache = None, None
-            if res:
+            if res is not None:
                 res.qid = msg.qid
                 data = res.pack()
                 self.send_data(data, addr)
