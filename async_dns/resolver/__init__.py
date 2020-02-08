@@ -120,12 +120,41 @@ class ProxyResolver(Resolver):
         self.set_proxies(proxies or self.default_nameservers)
 
     def get_nameservers(self, fqdn):
-        logger.debug('[get_proxy_nameservers][%s] %s', fqdn, self.proxies)
-        return NameServers(self.proxies) if self.proxies else super().get_nameservers(fqdn)
+        logger.debug('[get_proxy_nameservers][%s] %s', fqdn, self.ns_pairs)
+        for test, ns in self.ns_pairs:
+            if test is None or test(fqdn): break
+        else:
+            ns = super().get_nameservers(fqdn)
+        return NameServers(ns)
 
     def add_root_servers(self):
         pass
 
     def set_proxies(self, proxies):
-        '''Set proxy servers.'''
-        self.proxies = NameServers(proxies)
+        '''Set proxy servers.
+
+        There are two available structures:
+
+        1.  ['8.8.8.8', '8.8.4.4']
+        2.  [
+                ('*.lan', ['192.168.1.1']),
+                (lambda d: d.endswith('.local'), ['127.0.0.1']),
+                (None, ['8.8.8.8', '8.8.4.4']),
+            ]
+        '''
+        ns_pairs = []
+        if proxies:
+            if isinstance(proxies[0], str):
+                ns_pairs.append((None, NameServers(proxies)))
+            else:
+                for test, ns in proxies:
+                    ns_pairs.append((build_tester(test), NameServers(ns)))
+        self.ns_pairs = ns_pairs
+
+def build_tester(rule):
+    if rule is None or callable(rule): return rule
+    assert isinstance(rule, str)
+    if rule.startswith('*.'):
+        suffix = rule[1:]
+        return lambda d: d.endswith(suffix)
+    return lambda d: d == rule
