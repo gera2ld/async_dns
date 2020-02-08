@@ -93,10 +93,12 @@ async def start_server(
     if hosts != 'none':
         for rec in parse_hosts_file(None if hosts == 'local' else hosts):
             cache.add(record=rec)
-    if proxies == ['none']:
+    if proxies is None:
+        # recursive resolver
         resolver = Resolver(resolve_protocol, cache)
     else:
-        if proxies == ['default']: proxies = None
+        # proxy resolver
+        # if proxy is falsy, default proxies will be used
         resolver = ProxyResolver(resolve_protocol, cache, proxies=proxies)
     loop = asyncio.get_event_loop()
     if tcp_protocol:

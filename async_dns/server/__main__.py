@@ -18,7 +18,7 @@ def main():
         '--hosts', default='local',
         help='the path of a hosts file, `none` to disable hosts, `local` to read from local hosts file')
     parser.add_argument(
-        '-x', '--proxy', nargs='+', default=['default'],
+        '-x', '--proxy', nargs='*', default=None,
         help='the proxy DNS servers, `none` to serve as a recursive server, `default` to proxy to default nameservers')
     parser.add_argument(
         '-p', '--protocol', choices=['udp', 'tcp'], default='udp',
