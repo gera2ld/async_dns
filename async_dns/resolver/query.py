@@ -8,7 +8,7 @@ RESOLVED = 1
 REJECTED = 2
 
 class Query:
-    def __init__(self, resolver, loop, fqdn, qtype, tick):
+    def __init__(self, resolver, loop, fqdn, qtype, tick, protocol=None):
         self.loop = loop
         self.resolver = resolver
         self.fqdn = fqdn
@@ -16,6 +16,7 @@ class Query:
         self.tick = tick
         self.future = loop.create_future()
         self.from_cache = False
+        self.protocol = protocol or resolver.protocol
         self._status = PENDING
         self._result = DNSMessage(ra=resolver.recursive)
         self._result.qd.append(Record(REQUEST, name=fqdn, qtype=qtype))
@@ -179,14 +180,12 @@ class Query:
                 return inter_res
             nameservers.fail(addr)
 
-    async def request_once(self, req, addr, protocol=None):
+    async def request_once(self, req, addr):
         '''Return response to a request.
 
         Send DNS request data with `protocol`.
         '''
-        if protocol is None:
-            protocol = self.resolver.protocol
-        if protocol is TCP:
+        if self.protocol is TCP:
             request = tcp.request
         else:
             request = udp.request
