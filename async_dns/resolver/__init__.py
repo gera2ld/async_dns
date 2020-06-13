@@ -17,8 +17,8 @@ class Resolver:
     name = 'AsyncDNSResolver'
     recursive = 1
 
-    # If listed in root domains, the result will be regarded as authorative
-    rootdomains = ['.lan']
+    # If listed in root domains, the result will be regarded as authorative, e.g. ['.lan']
+    rootdomains = []
 
     def __init__(self, protocol=UDP, cache=None, request_timeout=3.0, timeout=5.0):
         self.futures = {}
