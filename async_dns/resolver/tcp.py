@@ -2,120 +2,47 @@
 Request using TCP protocol.
 '''
 import asyncio
+import struct
 
 _DEFAULT_QUEUE_SIZE = 10
 _DEFAULT_CONNECTION_LIFETIME = 120
+_connections = {}
 
 class DNSConnectionError(ConnectionError):
     '''
     Error thrown when connection to nameserver fails.
     '''
 
-class CallbackProtocol(asyncio.Protocol):
-    '''
-    Protocol class for asyncio connection callback.
-    '''
-    _connections = {}
-    def __init__(self, key):
-        super().__init__()
-        self.key = key
-        self.transport = None
-        self.cached = False
-        self._close_handle = None
-        self._future = None
-
-    def connection_made(self, transport):
-        self.transport = transport
-        self.cached = True
-        self._close_handle = None
-        self._reset_close()
-        self._set_future()
-
-    def _set_future(self, future=None):
-        self._future = future
-        transport = self.transport
-        if future is None:
-            transport.pause_reading()
-            # transport.pause_writing()
-        else:
-            transport.resume_reading()
-            # transport.resume_writing()
-
-    def write_data(self, future, data):
-        '''
-        Set future to wait for response. Write data to request.
-        '''
-        self._reset_close()
-        self._set_future(future)
-        self.transport.write(data)
-
-    def data_received(self, data):
-        if self._future is not None:
-            if not self._future.cancelled():
-                self._future.set_result(data)
-            self._set_future()
-
-    def _reset_close(self):
-        '''
-        Reset timer to delay close of connection.
-        '''
-        if self._close_handle:
-            self._close_handle.cancel()
-        loop = asyncio.get_event_loop()
-        self._close_handle = loop.call_later(_DEFAULT_CONNECTION_LIFETIME, self._close)
-
-    def _close(self):
-        self._connections.pop(self.key, None)
-        self.cached = False
-        self.transport.close()
-
-    def connection_lost(self, exc):
-        if self.cached:
-            self._close()
-
-    @classmethod
-    def get_queue(cls, key):
-        '''Get an async queue by key.'''
-        queue = cls._connections.get(key)
-        if queue is None:
-            queue = cls._connections[key] = asyncio.Queue(maxsize=_DEFAULT_QUEUE_SIZE)
-        return queue
-
-async def _connect(addr, onconnect, timeout=3.0):
-    loop = asyncio.get_event_loop()
-    _transport, protocol = await asyncio.wait_for(
-        loop.create_connection(onconnect, host=addr.host, port=addr.port),
-        timeout
-    )
-    return protocol
-
 async def request(req, addr, timeout=3.0):
     '''
     Send raw data with a connection pool.
     '''
+    qdata = req.pack()
+    bsize = struct.pack('!H', len(qdata))
     key = addr.to_str(53)
-    queue = CallbackProtocol.get_queue(key)
-    try:
-        protocol = queue.get_nowait()
-        assert protocol.cached
-    except (asyncio.QueueEmpty, AssertionError):
-        onconnect = lambda: CallbackProtocol(key)
-        for _retry in range(3):
+    queue = _connections.setdefault(key, asyncio.Queue(maxsize=_DEFAULT_QUEUE_SIZE))
+    for _retry in range(5):
+        reader = writer = None
+        try:
+            reader, writer = queue.get_nowait()
+        except asyncio.QueueEmpty:
+            pass
+        if reader is None:
             try:
-                protocol = await _connect(addr, onconnect, timeout)
+                reader, writer = await asyncio.wait_for(asyncio.open_connection(addr.host, addr.port), timeout)
             except asyncio.TimeoutError:
                 pass
-            else:
-                break
-        else:
-            raise DNSConnectionError
-    loop = asyncio.get_event_loop()
-    future = loop.create_future()
-    qdata = req.pack()
-    protocol.write_data(future, qdata)
-    data = await asyncio.wait_for(future, timeout)
-    try:
-        queue.put_nowait(protocol)
-    except asyncio.QueueFull:
-        pass
-    return data
+        if reader is None:
+            continue
+        writer.write(bsize)
+        writer.write(qdata)
+        try:
+            await writer.drain()
+            size, = struct.unpack('!H', await reader.readexactly(2))
+            data = await reader.readexactly(size)
+            queue.put_nowait((reader, writer))
+        except asyncio.QueueFull:
+            pass
+        return data
+    else:
+        raise DNSConnectionError

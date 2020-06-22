@@ -23,7 +23,7 @@ def load_message(data, offset, lower=True):
     cursor = None
     data_len = len(data)
     while offset < data_len:
-        length = ord(data[offset : offset + 1])
+        length = data[offset]
         offset += 1
         if length == 0:
             if cursor is None:
@@ -32,7 +32,7 @@ def load_message(data, offset, lower=True):
         if length >= 0xc0:
             if cursor is None:
                 cursor = offset + 1
-            offset = (length - 0xc0) * 256 + ord(data[offset : offset + 1])
+            offset = (length - 0xc0) * 256 + data[offset]
             continue
         parts.append(data[offset : offset + length])
         offset += length
