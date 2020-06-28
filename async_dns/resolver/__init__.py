@@ -121,11 +121,12 @@ class ProxyResolver(Resolver):
 
     def get_nameservers(self, fqdn):
         logger.debug('[get_proxy_nameservers][%s] %s', fqdn, self.ns_pairs)
-        for test, ns in self.ns_pairs:
+        for test, ns, protocol in self.ns_pairs:
             if test is None or test(fqdn): break
         else:
             ns = super().get_nameservers(fqdn)
-        return NameServers(ns)
+            protocol = None
+        return NameServers(ns, protocol=protocol)
 
     def add_root_servers(self):
         pass
@@ -133,22 +134,31 @@ class ProxyResolver(Resolver):
     def set_proxies(self, proxies):
         '''Set proxy servers.
 
-        There are two available structures:
+        Each proxy item can be one of:
+        - (test, nameserver_list, protocol)
+        - (test, nameserver_list)               # use `udp` by default
+        - nameserver                            # equivalent to (None, [nameserver], 'udp')
 
-        1.  ['8.8.8.8', '8.8.4.4']
-        2.  [
-                ('*.lan', ['192.168.1.1']),
-                (lambda d: d.endswith('.local'), ['127.0.0.1']),
-                (None, ['8.8.8.8', '8.8.4.4']),
-            ]
+        Examples:
+        [
+            ('*.lan', ['192.168.1.1'], 'tcp'),
+            (lambda d: d.endswith('.local'), ['127.0.0.1']),
+            (None, ['8.8.8.8', '8.8.4.4']),
+            '8.8.8.8', # equivalent to (None, ['8.8.8.8'], 'udp')
+        ]
         '''
         ns_pairs = []
         if proxies:
             if isinstance(proxies[0], str):
-                ns_pairs.append((None, NameServers(proxies)))
+                ns_pairs.append((None, NameServers(proxies), UDP))
             else:
-                for test, ns in proxies:
-                    ns_pairs.append((build_tester(test), NameServers(ns)))
+                for item in proxies:
+                    if len(item) == 2:
+                        test, ns = item
+                        protocol = UDP
+                    else:
+                        test, ns, protocol = item
+                    ns_pairs.append((build_tester(test), NameServers(ns), InternetProtocol.get(protocol)))
         self.ns_pairs = ns_pairs
 
 def build_tester(rule):

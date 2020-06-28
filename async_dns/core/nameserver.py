@@ -41,10 +41,11 @@ else:
         pass
 
 class NameServers(WeightMixIn, RandMixIn):
-    def __init__(self, nameservers=[], default_port=53, **kw):
+    def __init__(self, nameservers=[], default_port=53, protocol=None, **kw):
         self.default_port = default_port
         self.data = [Address(item, default_port) for item in nameservers]
         super().__init__(**kw)
+        self.protocol = protocol
 
     def __bool__(self):
         return len(self.data) > 0
