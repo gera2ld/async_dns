@@ -5,6 +5,9 @@ class InternetProtocol:
         self.protocol = name
         self.protocols[name] = self
 
+    def __str__(self):
+        return self.protocol
+
     @classmethod
     def get(cls, name):
         if isinstance(name, cls):

@@ -8,7 +8,7 @@ from async_dns.core import *
 from async_dns.core.cache import CacheNode
 from async_dns.resolver import ProxyResolver, Resolver
 
-async def handle_dns(resolver, data, addr, protocol=None):
+async def handle_dns(resolver, data, addr, protocol):
     '''Handle DNS requests'''
 
     msg = DNSMessage.parse(data)
@@ -23,12 +23,9 @@ async def handle_dns(resolver, data, addr, protocol=None):
             res, from_cache = None, None
         if res is not None:
             res.qid = msg.qid
-            data = res.pack()
-            yield data
+            data = res.pack(size_limit=512 if protocol is UDP else None) # rfc2181
             len_data = len(data)
-            # if len_data > 512:
-            #     print(res)
-            #     print(data)
+            yield data
             res_code = res.r
         else:
             len_data = 0
@@ -58,7 +55,7 @@ class TCPHandler:
             except asyncio.IncompleteReadError:
                 break
             data = await reader.readexactly(size)
-            async for result in handle_dns(self.resolver, data, addr, 'tcp'):
+            async for result in handle_dns(self.resolver, data, addr, TCP):
                 bsize = struct.pack('!H', len(result))
                 writer.write(bsize)
                 writer.write(result)
@@ -77,7 +74,7 @@ class DNSDatagramProtocol(asyncio.DatagramProtocol):
         asyncio.ensure_future(self.handle(data, addr))
 
     async def handle(self, data, addr):
-        async for result in handle_dns(self.resolver, data, addr, 'udp'):
+        async for result in handle_dns(self.resolver, data, addr, UDP):
             self.transport.sendto(result, addr)
 
 async def start_server(

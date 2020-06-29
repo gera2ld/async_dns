@@ -236,7 +236,7 @@ class DNSMessage:
         self.qid = qid    # id for UDP package
         self.o = o        # opcode: 0 for standard query
         self.aa = aa      # Authoritative Answer
-        self.tc = tc      # TrunCation
+        self.tc = tc      # TrunCation, will be updated on .pack()
         self.rd = rd      # Recursion Desired for request
         self.ra = ra      # Recursion Available for response
         self.r = r        # rcode: 0 for success
@@ -258,11 +258,23 @@ class DNSMessage:
         return '<DNSMessage type=%s qid=%d r=%d QD=%s AN=%s NS=%s AR=%s>' % (
                 self.qr, self.qid, self.r, self.qd, self.an, self.ns, self.ar)
 
-    def pack(self):
+    def pack(self, size_limit=None):
         z = 0
-        # TODO update self.tc
-        buf = io.BytesIO()
         names = {}
+        buf = io.BytesIO()
+        buf.seek(12)
+        tc = 0
+        for group in self.qd, self.an, self.ns, self.ar:
+            if tc: break
+            for rec in group:
+                offset = buf.tell()
+                brec = rec.pack(names, offset)
+                if size_limit is not None and offset + len(brec) > size_limit:
+                    tc = 1
+                    break
+                buf.write(brec)
+        self.tc = tc
+        buf.seek(0)
         buf.write(struct.pack(
             '!HHHHHH',
             self.qid,
@@ -272,9 +284,6 @@ class DNSMessage:
             len(self.ns),
             len(self.ar)
         ))
-        for group in self.qd, self.an, self.ns, self.ar:
-            for rec in group:
-                buf.write(rec.pack(names, buf.tell()))
         return buf.getvalue()
 
     @staticmethod
