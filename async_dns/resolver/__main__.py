@@ -11,9 +11,6 @@ def _parse_args():
         prog='python3 -m async_dns.resolver',
         description='Async DNS resolver')
     parser.add_argument('hostnames', nargs='+', help='the hostnames to query')
-    parser.add_argument(
-        '-p', '--protocol', choices=['udp', 'tcp'], default='udp',
-        help='whether to use TCP protocol as default to query remote servers')
     parser.add_argument('-n', '--nameservers', nargs='+', help='name servers')
     parser.add_argument(
         '-t', '--types', nargs='+', default=['any'],
@@ -22,7 +19,7 @@ def _parse_args():
 
 async def resolve_hostname(resolver, hostname, qtype):
     '''Resolve a hostname with the given resolver.'''
-    addr = Address(hostname, allow_domain=True)
+    addr = Address.parse(hostname, allow_domain=True)
     if addr.ip_type is None:
         return await resolver.query(hostname, qtype)
     else:
@@ -33,7 +30,7 @@ async def resolve_hostname(resolver, hostname, qtype):
 
 def resolve_hostnames(args):
     '''Resolve hostnames passed from process arguments.'''
-    resolver = ProxyResolver(args.protocol)
+    resolver = ProxyResolver()
     if args.nameservers:
         resolver.set_proxies(args.nameservers)
     results = []

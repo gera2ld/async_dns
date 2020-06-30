@@ -7,6 +7,7 @@ import struct
 from async_dns.core import *
 from async_dns.core.cache import CacheNode
 from async_dns.resolver import ProxyResolver, Resolver
+from .serve import *
 
 async def handle_dns(resolver, data, addr, protocol):
     '''Handle DNS requests'''
@@ -77,13 +78,11 @@ class DNSDatagramProtocol(asyncio.DatagramProtocol):
         async for result in handle_dns(self.resolver, data, addr, UDP):
             self.transport.sendto(result, addr)
 
-async def start_server(
-    host='', port=53, enable_tcp=True, enable_udp=True,
-    hosts=None, resolve_protocol=UDP, proxies=None):
+async def start_dns_server(
+    bind=':53', enable_tcp=True, enable_udp=True,
+    hosts=None, proxies=None):
     '''Start a DNS server.'''
 
-    if not isinstance(resolve_protocol, InternetProtocol):
-        resolve_protocol = InternetProtocol.get(resolve_protocol)
     cache = CacheNode()
     cache.add('1.0.0.127.in-addr.arpa', qtype=types.PTR, data='async-dns.local')
     cache.add('localhost', qtype=types.A, data='127.0.0.1')
@@ -92,25 +91,28 @@ async def start_server(
             cache.add(record=rec)
     if proxies is None:
         # recursive resolver
-        resolver = Resolver(resolve_protocol, cache)
+        resolver = Resolver(cache)
     else:
         # proxy resolver
         # if proxy is falsy, default proxies will be used
-        resolver = ProxyResolver(resolve_protocol, cache, proxies=proxies)
+        resolver = ProxyResolver(cache, proxies=proxies)
     loop = asyncio.get_event_loop()
+    host = Host(bind)
+    urls = []
     if enable_tcp:
-        server = await asyncio.start_server(TCPHandler(resolver).handle_tcp, host, port)
+        server = await start_server(TCPHandler(resolver).handle_tcp, bind)
+        urls.extend(get_server_hosts([server], 'tcp:'))
     else:
         server = None
-    transport_arr = []
     if enable_udp:
-        if host:
-            host_arr = [host] if isinstance(host, str) else host
-        else:
-            host_arr = ['::'] # '::' means both IPv4 and IPv6
-        for host_bind in host_arr:
-            transport, _protocol = await loop.create_datagram_endpoint(
-                lambda: DNSDatagramProtocol(resolver),
-                local_addr=(host_bind, port))
-            transport_arr.append(transport)
-    return server, transport_arr, resolver
+        hostname = host.hostname or '::' # '::' includes both IPv4 and IPv6
+        transport, _protocol = await loop.create_datagram_endpoint(
+            lambda: DNSDatagramProtocol(resolver),
+            local_addr=(hostname, host.port))
+        urls.append(get_url_items([transport.get_extra_info('sockname')], 'udp:'))
+    else:
+        transport = None
+    for line in repr_urls(urls):
+        logger.info('%s', line)
+    logger.info('%s started', resolver.name)
+    return resolver, server, transport

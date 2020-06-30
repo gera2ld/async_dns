@@ -8,6 +8,9 @@ class InternetProtocol:
     def __str__(self):
         return self.protocol
 
+    def __repr__(self):
+        return f'<InternetProtocol {self.protocol}>'
+
     @classmethod
     def get(cls, name):
         if isinstance(name, cls):

@@ -2,7 +2,7 @@
 name = "async_dns"
 version = "1.0.10"
 description = "Asynchronous DNS client and server"
-authors = ["Gerald <i@gerald.top>"]
+authors = ["Gerald <gera2ld@live.com>"]
 license = "MIT"
 keywords = ["async", "dns", "asyncio"]
 classifiers = ["Development Status :: 6 - Mature", "Intended Audience :: Developers", "License :: OSI Approved :: MIT License", "Programming Language :: Python :: 3.5", "Programming Language :: Python :: 3.6", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3 :: Only"]
@@ -11,7 +11,6 @@ readme = 'README.md'
 
 [tool.poetry.dependencies]
 python = "^3.5"
-
 
 [build-system]
 requires = ["poetry>=0.12"]

@@ -1,6 +1,6 @@
 import asyncio
 from . import tcp, udp
-from async_dns.core import TCP, DNSError, DNSMessage, NameServers, logger, types, Address, REQUEST, Record, InvalidNameServer
+from async_dns.core import TCP, DNSError, DNSMessage, NameServers, logger, types, REQUEST, Record, InvalidNameServer
 
 A_TYPES = types.A, types.AAAA
 PENDING = 0
@@ -162,7 +162,7 @@ class Query:
             if not addr:
                 raise InvalidNameServer
             try:
-                data = await self.request_once(req, addr, nameservers.protocol or self.resolver.protocol)
+                data = await self.request_once(req, addr)
                 inter_res = DNSMessage.parse(data)
                 logger.debug('[request_remote] %s', inter_res)
                 if inter_res.qd[0].name != req.qd[0].name:
@@ -179,12 +179,12 @@ class Query:
                 return inter_res
             nameservers.fail(addr)
 
-    async def request_once(self, req, addr, protocol):
+    async def request_once(self, req, addr):
         '''Return response to a request.
 
         Send DNS request data with `protocol`.
         '''
-        if protocol is TCP:
+        if addr.protocol is TCP:
             request = tcp.request
         else:
             request = udp.request

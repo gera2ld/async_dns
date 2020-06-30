@@ -3,7 +3,7 @@ This module starts a DNS server according to console arguments.
 '''
 import argparse
 import asyncio
-from . import start_server
+from . import start_dns_server, run_forever
 from ..core import logger, Address
 
 def main():
@@ -20,22 +20,8 @@ def main():
     parser.add_argument(
         '-x', '--proxy', nargs='*', default=None,
         help='the proxy DNS servers, `none` to serve as a recursive server, `default` to proxy to default nameservers')
-    parser.add_argument(
-        '-p', '--protocol', choices=['udp', 'tcp'], default='udp',
-        help='whether to use TCP protocol as default to query remote servers')
     args = parser.parse_args()
-    addr = Address(args.bind, allow_domain=True)
     logger.info('DNS server v2 - by Gerald')
-    loop = asyncio.get_event_loop()
-    tcpserver, udp_transports, resolver = loop.run_until_complete(start_server(
-        host=addr.host, port=addr.port, hosts=args.hosts,
-        resolve_protocol=args.protocol, proxies=args.proxy))
-    logger.info('%s started', resolver.name)
-    if tcpserver is not None:
-        for sock in tcpserver.sockets:
-            logger.info('Serving on %s, port %d, TCP', *(sock.getsockname()[:2]))
-    for transport in udp_transports:
-        logger.info('Serving on %s, port %d, UDP', *(transport.get_extra_info('sockname')[:2]))
-    loop.run_forever()
+    run_forever(start_dns_server(bind=args.bind, hosts=args.hosts, proxies=args.proxy))
 
 main()
