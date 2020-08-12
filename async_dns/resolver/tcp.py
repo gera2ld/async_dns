@@ -4,13 +4,12 @@ Request using TCP protocol.
 import asyncio
 import struct
 
-_DEFAULT_QUEUE_SIZE = 10
-_DEFAULT_CONNECTION_LIFETIME = 120
+DEFAULT_QUEUE_SIZE = 10
 _connections = {}
 
 class DNSConnectionError(ConnectionError):
     '''
-    Error thrown when connection to nameserver fails.
+    Connection to nameserver fails.
     '''
 
 async def request(req, addr, timeout=3.0):
@@ -20,7 +19,10 @@ async def request(req, addr, timeout=3.0):
     qdata = req.pack()
     bsize = struct.pack('!H', len(qdata))
     key = addr.to_str(53)
-    queue = _connections.setdefault(key, asyncio.Queue(maxsize=_DEFAULT_QUEUE_SIZE))
+    queue = _connections.get(key)
+    if queue is None:
+        queue = asyncio.Queue(maxsize=DEFAULT_QUEUE_SIZE)
+        _connections[key] = queue
     for _retry in range(5):
         reader = writer = None
         try:
@@ -29,7 +31,7 @@ async def request(req, addr, timeout=3.0):
             pass
         if reader is None:
             try:
-                reader, writer = await asyncio.wait_for(asyncio.open_connection(addr.host, addr.port), timeout)
+                reader, writer = await asyncio.wait_for(asyncio.open_connection(*addr.to_addr()), timeout)
             except asyncio.TimeoutError:
                 pass
         if reader is None:

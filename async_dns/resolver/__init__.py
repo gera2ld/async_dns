@@ -21,7 +21,7 @@ class Resolver:
     rootdomains = []
 
     def __init__(self, cache=None, request_timeout=3.0, timeout=5.0):
-        self.futures = {}
+        self._queries = {}
         if cache is None:
             cache = CacheNode()
         self.cache = cache
@@ -34,25 +34,24 @@ class Resolver:
             self.cache.add(record=rec)
 
     async def query(self, fqdn, qtype=types.ANY, timeout=None, tick=5):
-        '''Return query result.
-
-        Cache queries for hostnames and types to avoid repeated requests at the same time.
-        '''
-        result, _from_cache = await self.query_with_cache(fqdn, qtype, timeout)
+        '''Return query result. Errors will be thrown.'''
+        result, _cached = await self.query_with_timeout(fqdn, qtype, timeout, tick)
         return result
 
-    async def query_with_cache(self, fqdn, qtype, timeout=None, tick=5):
+    async def query_safe(self, fqdn, qtype=types.ANY, timeout=None, tick=5):
+        '''Return query result with errors ignored.'''
+        try:
+            return await self.query(fqdn, qtype, timeout, tick)
+        except Exception:
+            pass
+
+    async def query_with_timeout(self, fqdn, qtype, timeout=None, tick=5):
         if timeout is None:
             timeout = self.timeout
-        future = self.memoized_query(fqdn, qtype, tick)
-        try:
-            return await asyncio.wait_for(future, timeout)
-        except (AssertionError, asyncio.TimeoutError, asyncio.CancelledError):
-            import traceback
-            logger.debug('[query_with_cache][%s][%s] %s', types.get_name(qtype), fqdn, traceback.format_exc())
-            return None, False
+        return await asyncio.wait_for(self._query(fqdn, qtype, tick), timeout)
 
-    def memoized_query(self, fqdn, qtype, tick):
+    async def _query(self, fqdn, qtype, tick):
+        assert tick > 0, 'Maximum nested query times exceeded'
         if fqdn.endswith('.'):
             fqdn = fqdn[:-1]
         if qtype is types.ANY:
@@ -64,18 +63,18 @@ class Resolver:
             else:
                 fqdn = ptr_name
                 qtype = types.PTR
+        return await self._query_once(fqdn, qtype, tick)
+
+    def _query_once(self, fqdn, qtype, tick):
         key = fqdn, qtype
-        future = self.futures.get(key)
+        future = self._queries.get(key)
         if future is None:
-            loop = asyncio.get_event_loop()
-            assert tick > 1, 'Maximum nested query times exceeded'
-            query = Query(self, loop, fqdn, qtype, tick - 1)
-            future = query.future
-            self.futures[key] = future
+            query = Query(self, fqdn, qtype, tick)
             def clear(future):
-                self.futures.pop(key, None)
+                self._queries.pop(key, None)
+            future = asyncio.create_task(query.query())
             future.add_done_callback(clear)
-            asyncio.ensure_future(query.query())
+            self._queries[key] = future
         return future
 
     def get_nameservers(self, fqdn):

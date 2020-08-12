@@ -1,6 +1,6 @@
 import asyncio
 from . import tcp, udp
-from async_dns.core import TCP, DNSError, DNSMessage, NameServers, logger, types, REQUEST, Record, InvalidNameServer
+from async_dns.core import DNSError, DNSMessage, NameServers, logger, types, REQUEST, Record, InvalidNameServer
 
 A_TYPES = types.A, types.AAAA
 PENDING = 0
@@ -8,40 +8,33 @@ RESOLVED = 1
 REJECTED = 2
 
 class Query:
-    def __init__(self, resolver, loop, fqdn, qtype, tick):
-        self.loop = loop
+    protocols = {
+        'tcp': tcp.request,
+        'udp': udp.request,
+    }
+
+    def __init__(self, resolver, fqdn, qtype, tick):
         self.resolver = resolver
         self.fqdn = fqdn
         self.qtype = qtype
         self.tick = tick
-        self.future = loop.create_future()
-        self.from_cache = False
+        self._cached = False
         self._status = PENDING
         self._result = DNSMessage(ra=resolver.recursive)
         self._result.qd.append(Record(REQUEST, name=fqdn, qtype=qtype))
 
     async def query(self):
-        error = None
         domain = self.fqdn
         nameservers = None
-        try:
-            while True:
-                if not self.future.cancelled():
-                    self.from_cache = await self.query_cache(domain)
-                    logger.debug('[query_cache][%s][%s] %s', types.get_name(self.qtype), domain, self.from_cache)
-                    if self.from_cache: break
-                if not self.future.cancelled():
-                    remote_res = await self.query_remote(domain, nameservers)
-                    logger.debug('[query_remote][%s][%s] %s', types.get_name(self.qtype), domain, remote_res)
-                    if remote_res is None: break
-                    domain, nameservers = remote_res
-        except Exception as e:
-            error = e
-        if not self.future.cancelled():
-            if error:
-                self.future.set_exception(error)
-            else:
-                self.future.set_result((self._result, self.from_cache))
+        while True:
+            self._cached = await self.query_cache(domain)
+            logger.debug('[query_cache][%s][%s] %s', types.get_name(self.qtype), domain, self._cached)
+            if self._cached: break
+            remote_res = await self.query_remote(domain, nameservers)
+            logger.debug('[query_remote][%s][%s] %s', types.get_name(self.qtype), domain, remote_res)
+            if remote_res is None: break
+            domain, nameservers = remote_res
+        return self._result, self._cached
 
     async def query_cache(self, domain):
         '''Returns a boolean whether a cache hit occurs.'''
@@ -57,7 +50,7 @@ class Query:
             if self.qtype == types.CNAME:
                 return True
             for rec in cname:
-                inter_res = await resolver.query(rec.data, self.qtype)
+                inter_res = await resolver.query_safe(rec.data, self.qtype)
                 if inter_res is None or inter_res.r > 0:
                     continue
                 result.an.extend(inter_res.an)
@@ -157,7 +150,7 @@ class Query:
         return inter_res
 
     async def request_remote(self, nameservers, req):
-        while not self.future.cancelled():
+        while True:
             addr = nameservers.get()
             if not addr:
                 raise InvalidNameServer
@@ -184,9 +177,6 @@ class Query:
 
         Send DNS request data with `protocol`.
         '''
-        if addr.protocol is TCP:
-            request = tcp.request
-        else:
-            request = udp.request
+        request = self.protocols[addr.protocol]
         data = await request(req, addr, self.resolver.request_timeout)
         return data

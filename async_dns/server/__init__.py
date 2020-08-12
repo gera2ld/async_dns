@@ -24,7 +24,7 @@ async def handle_dns(resolver, data, addr, protocol):
             res, from_cache = None, None
         if res is not None:
             res.qid = msg.qid
-            data = res.pack(size_limit=512 if protocol is UDP else None) # rfc2181
+            data = res.pack(size_limit=512 if UDP.is_protocol(protocol) else None) # rfc2181
             len_data = len(data)
             yield data
             res_code = res.r

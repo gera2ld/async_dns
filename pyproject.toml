@@ -10,7 +10,7 @@ repository = "https://github.com/gera2ld/async_dns"
 readme = 'README.md'
 
 [tool.poetry.dependencies]
-python = "^3.5"
+python = "^3.6"
 
 [build-system]
 requires = ["poetry>=0.12"]

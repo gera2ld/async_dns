@@ -1,4 +1,3 @@
-from .protocol import *
 from .record import *
 from .logger import *
 from .address import *

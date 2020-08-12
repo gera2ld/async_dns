@@ -1,6 +1,6 @@
 import socket
 from urllib.parse import urlparse
-from . import types, InternetProtocol
+from . import types
 
 __all__ = [
     'Host',
@@ -54,69 +54,68 @@ class InvalidIP(Exception):
 class InvalidNameServer(Exception):
     pass
 
+def get_ip_type(hostname):
+    if ':' in hostname:
+        # ipv6
+        try:
+            socket.inet_pton(socket.AF_INET6, hostname)
+        except OSError:
+            raise InvalidHost(hostname)
+        return types.AAAA
+    # ipv4 or domain name
+    try:
+        socket.inet_pton(socket.AF_INET, hostname)
+    except OSError:
+        # domain name
+        pass
+    else:
+        return types.A
+
 class Address:
-    def __init__(self, host, port, ip_type, protocol):
-        self.host = host
-        self.port = port
-        self.ip_type = ip_type
-        if protocol is not None:
-            protocol = InternetProtocol.get(protocol)
+    def __init__(self, hostinfo, protocol, path=None):
+        self.hostinfo = hostinfo
         self.protocol = protocol
+        self.path = path
+        self.ip_type = get_ip_type(self.hostinfo.hostname)
+
+    def __str__(self):
+        protocol = self.protocol or '-'
+        host = self.hostinfo.host
+        return f'{protocol}://{host}'
 
     def __eq__(self, other):
-        return self.host == other.host and self.port == other.port
+        return str(self) == str(other)
 
     def __repr__(self):
-        return self.to_str()
+        return str(self)
 
     def __hash__(self):
-        return hash(self.to_addr())
+        return hash(str(self))
 
     def copy(self):
-        return Address(self.host, self.port, self.ip_type, self.protocol)
-
-    def to_str(self, default_port = 0):
-        if default_port is None or self.port == default_port:
-            return self.host
-        host = self.host if self.ip_type is types.AAAA else '[' + self.host + ']'
-        protocol = self.protocol or '-'
-        return f'{protocol}//{host}:{self.port}'
+        return Address(Host(self.hostinfo), self.protocol, self.path)
 
     def to_addr(self):
-        return self.host, self.port
+        return self.hostinfo.hostname, self.hostinfo.port
 
     def to_ptr(self):
         if self.ip_type is types.A:
-            return '.'.join(reversed(self.host.split('.'))) + '.in-addr.arpa'
-        raise InvalidIP(self.host)
+            return '.'.join(reversed(self.hostinfo.hostname.split('.'))) + '.in-addr.arpa'
+        raise InvalidIP(self.hostinfo.hostname)
 
     @classmethod
     def parse(cls, value, default_port=0, default_protocol=None, allow_domain=False):
         if isinstance(value, Address):
             return value.copy()
-        if '://' in value:
-            data = urlparse(value)
-            host, port, protocol = (data.hostname or ''), (data.port or default_port), (data.scheme or default_protocol)
-        elif value.count(':') == 1 or '[' in value:
-            data = Host(value)
-            host, port, protocol = data.hostname, data.port, default_protocol
+        if '://' not in value:
+            value = '//' + value
+        data = urlparse(value, scheme=default_protocol or 'udp')
+        netloc = data.netloc
+        if netloc.count(':') == 1 or '[' in netloc:
+            hostinfo = Host(netloc)
         else:
-            host, port, protocol = value, default_port, default_protocol
-        if ':' in host:
-            # ipv6
-            try:
-                socket.inet_pton(socket.AF_INET6, host)
-            except OSError:
-                raise InvalidHost(host)
-            ip_type = types.AAAA
-        else:
-            # ipv4 or domain name
-            try:
-                socket.inet_pton(socket.AF_INET, host)
-            except OSError:
-                if not allow_domain:
-                    raise InvalidHost(host)
-                ip_type = None
-            else:
-                ip_type = types.A
-        return Address(host, port, ip_type, protocol)
+            hostinfo = Host((netloc, default_port))
+        addr = Address(hostinfo, data.scheme, data.path)
+        if not allow_domain:
+            assert addr.ip_type, InvalidHost(hostinfo.hostname)
+        return addr
