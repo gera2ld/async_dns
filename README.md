@@ -97,6 +97,10 @@ resolver = ProxyResolver(proxies=[
 ])
 ```
 
+## DoH support
+
+DoH (aka DNS over HTTPS) is supported via [async-doh](https://github.com/gera2ld/async-doh), go there for more details.
+
 ## Test
 
 ``` sh
