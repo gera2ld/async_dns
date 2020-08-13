@@ -3,6 +3,7 @@ Request using TCP protocol.
 '''
 import asyncio
 import struct
+from async_dns.core import DNSMessage
 
 DEFAULT_QUEUE_SIZE = 10
 _connections = {}
@@ -45,6 +46,7 @@ async def request(req, addr, timeout=3.0):
             queue.put_nowait((reader, writer))
         except asyncio.QueueFull:
             pass
-        return data
+        result = DNSMessage.parse(data)
+        return result
     else:
         raise DNSConnectionError

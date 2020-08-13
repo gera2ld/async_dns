@@ -7,7 +7,6 @@ __all__ = [
     'Address',
     'InvalidHost',
     'InvalidIP',
-    'InvalidNameServer',
 ]
 
 class Host:
@@ -15,9 +14,12 @@ class Host:
         if isinstance(netloc, Host):
             hostname, port, username, password = netloc.hostname, netloc.port, netloc.username, netloc.password
         elif isinstance(netloc, str):
-            userinfo, _, hostinfo = netloc.rpartition('@')
-            hostname, _, port = hostinfo.rpartition(':')
-            port = int(port)
+            userinfo, _, host = netloc.rpartition('@')
+            if host.count(':') == 1 or '[' in host:
+                hostname, _, port = host.rpartition(':')
+                port = int(port)
+            else:
+                hostname, port = host, None
             if hostname.startswith('[') and hostname.endswith(']'):
                 hostname = hostname[1:-1]
             if userinfo:
@@ -33,8 +35,10 @@ class Host:
 
     @property
     def host(self):
-        hostname = f'[{self.hostname}]' if ':' in self.hostname else self.hostname
-        return f'{hostname}:{self.port}'
+        host = f'[{self.hostname}]' if ':' in self.hostname else self.hostname
+        if self.port:
+            host = f'{host}:{self.port}'
+        return host
 
     def __str__(self):
         userinfo = ''
@@ -49,9 +53,6 @@ class InvalidHost(Exception):
     pass
 
 class InvalidIP(Exception):
-    pass
-
-class InvalidNameServer(Exception):
     pass
 
 def get_ip_type(hostname):
@@ -81,7 +82,8 @@ class Address:
     def __str__(self):
         protocol = self.protocol or '-'
         host = self.hostinfo.host
-        return f'{protocol}://{host}'
+        path = self.path or ''
+        return f'{protocol}://{host}{path}'
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -104,17 +106,15 @@ class Address:
         raise InvalidIP(self.hostinfo.hostname)
 
     @classmethod
-    def parse(cls, value, default_port=0, default_protocol=None, allow_domain=False):
+    def parse(cls, value, default_protocol=None, allow_domain=False):
         if isinstance(value, Address):
             return value.copy()
         if '://' not in value:
             value = '//' + value
         data = urlparse(value, scheme=default_protocol or 'udp')
-        netloc = data.netloc
-        if netloc.count(':') == 1 or '[' in netloc:
-            hostinfo = Host(netloc)
-        else:
-            hostinfo = Host((netloc, default_port))
+        hostinfo = Host(data.netloc)
+        if hostinfo.port is None and data.scheme in ('udp', 'tcp'):
+            hostinfo.port = 53
         addr = Address(hostinfo, data.scheme, data.path)
         if not allow_domain:
             assert addr.ip_type, InvalidHost(hostinfo.hostname)

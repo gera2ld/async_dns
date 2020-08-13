@@ -3,10 +3,10 @@ from async_dns.core import Address, types
 
 class TestAddress(unittest.TestCase):
     def test_defaults(self):
-        a = Address.parse('1.1.1.1', default_port=80, default_protocol='udp')
+        a = Address.parse('1.1.1.1', default_protocol='udp')
         self.assertEqual(
             (a.hostinfo.hostname, a.hostinfo.port, a.ip_type, a.protocol),
-            ('1.1.1.1', 80, types.A, 'udp'),
+            ('1.1.1.1', 53, types.A, 'udp'),
         )
 
     def test_ipv4(self):

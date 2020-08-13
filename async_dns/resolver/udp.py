@@ -3,6 +3,7 @@ Request using UDP protocol.
 '''
 import asyncio
 import socket
+from async_dns.core import DNSMessage
 from .. import types, RandId
 
 class CallbackProtocol(asyncio.DatagramProtocol):
@@ -84,4 +85,5 @@ async def request(req, addr, timeout=3.0):
     '''
     dispatcher = await Dispatcher.get(addr.ip_type)
     data = await dispatcher.send(req, addr, timeout)
-    return data
+    result = DNSMessage.parse(data)
+    return result

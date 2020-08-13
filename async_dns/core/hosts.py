@@ -18,7 +18,7 @@ def parse_hosts_file(filename=None):
         items = line.strip().split('#')[0].split()
         try:
             it = iter(items)
-            addr = Address.parse(next(it), default_port=53)
+            addr = Address.parse(next(it))
         except StopIteration:
             pass
         else:

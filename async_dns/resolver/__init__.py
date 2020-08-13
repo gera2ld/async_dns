@@ -92,10 +92,10 @@ class Resolver:
                     if Address.parse(host, allow_domain=True).ip_type is None:
                         # host is a hostname instead of IP address
                         for res in cache.query(host, A_TYPES):
-                            hosts.append(Address.parse(res.data, default_port=53))
+                            hosts.append(Address.parse(res.data))
                             empty = False
                     else:
-                        hosts.append(Address.parse(host, default_port=53))
+                        hosts.append(Address.parse(host))
                         empty = False
         logger.debug('[get_nameservers][%s] %s', fqdn, hosts)
         return NameServers(hosts)

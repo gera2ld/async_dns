@@ -1,6 +1,6 @@
 import asyncio
 from . import tcp, udp
-from async_dns.core import DNSError, DNSMessage, NameServers, logger, types, REQUEST, Record, InvalidNameServer
+from async_dns.core import DNSError, DNSMessage, NameServers, logger, types, REQUEST, Record
 
 A_TYPES = types.A, types.AAAA
 PENDING = 0
@@ -152,21 +152,18 @@ class Query:
     async def request_remote(self, nameservers, req):
         while True:
             addr = nameservers.get()
-            if not addr:
-                raise InvalidNameServer
             try:
-                data = await self.request_once(req, addr)
-                inter_res = DNSMessage.parse(data)
+                inter_res = await self.request_once(req, addr)
                 logger.debug('[request_remote] %s', inter_res)
                 if inter_res.qd[0].name != req.qd[0].name:
                     raise DNSError(-1, 'Question section mismatch')
                 assert inter_res.r != 2, 'Remote server fail'
             except (asyncio.TimeoutError, AssertionError) as e:
-                logger.debug('[request_remote][server_error] %s', e)
+                logger.debug('[request_remote][server_error] %s', repr(e))
             except DNSError as e:
-                logger.debug('[request_remote][dns_error] %s', e)
+                logger.debug('[request_remote][dns_error] %s', repr(e))
             except Exception as e:
-                logger.error('[request_remote][error] %s', e)
+                logger.error('[request_remote][error] %s', repr(e))
             else:
                 nameservers.success(addr)
                 return inter_res
