@@ -19,7 +19,7 @@ async def request(req, addr, timeout=3.0):
     '''
     qdata = req.pack()
     bsize = struct.pack('!H', len(qdata))
-    key = addr.to_str(53)
+    key = str(addr)
     queue = _connections.get(key)
     if queue is None:
         queue = asyncio.Queue(maxsize=DEFAULT_QUEUE_SIZE)

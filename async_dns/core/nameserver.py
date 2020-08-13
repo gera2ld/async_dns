@@ -1,5 +1,5 @@
-import asyncio
 import sys
+import time
 import random
 from .address import Address
 
@@ -12,34 +12,42 @@ class NoNameServer(Exception):
     pass
 
 class IterMixIn:
-    def __init__(self, *k, **kw):
-        self._timers = set()
-        self._activated = []
-        self._disabled = set()
-        self._update()
-
-    def _update(self):
-        self._activated = [item for item in self.data if item not in self._disabled]
-
-    def get(self):
-        if not self._activated: raise NoNameServer
-        return random.choice(self._activated)
+    def iter(self):
+        if not self.data: raise NoNameServer
+        return iter(self.data)
 
     def success(self, item):
         pass
 
     def fail(self, item):
-        def clear():
-            self._disabled.discard(item)
-            self._timers.discard(handle)
-            self._update()
-        self._disabled.add(item)
-        self._update()
-        loop = asyncio.get_event_loop()
-        handle = loop.call_later(1, clear)
-        self._timers.add(handle)
+        pass
 
-class NameServers(IterMixIn):
+class WeightMixIn:
+    def __init__(self, *k, **kw):
+        self._failures = [0] * len(self.data)
+        self.ts = 0
+        self._update()
+
+    def _update(self):
+        if time.time() > self.ts + 60:
+            self.ts = time.time()
+            self._sorted = list(self.data[i] for i in sorted(range(len(self.data)), key=lambda i: self._failures[i]))
+            self._last_min_failures = self._failures
+            self._failures = [0] * len(self.data)
+
+    def success(self, item):
+        self._update()
+
+    def fail(self, item):
+        self._update()
+        index = self.data.index(item)
+        self._failures[index] += 1
+
+    def iter(self):
+        if not self.data: raise NoNameServer
+        return iter(self._sorted)
+
+class NameServers(WeightMixIn, IterMixIn):
     def __init__(self, nameservers=[], **kw):
         self.data = [Address.parse(item, default_protocol='udp', allow_domain=True) for item in nameservers]
         super().__init__(**kw)

@@ -150,24 +150,32 @@ class Query:
         return inter_res
 
     async def request_remote(self, nameservers, req):
-        while True:
-            addr = nameservers.get()
+        last_err = None
+        for addr in nameservers.iter():
             try:
                 inter_res = await self.request_once(req, addr)
                 logger.debug('[request_remote] %s', inter_res)
                 if inter_res.qd[0].name != req.qd[0].name:
                     raise DNSError(-1, 'Question section mismatch')
                 assert inter_res.r != 2, 'Remote server fail'
-            except (asyncio.TimeoutError, AssertionError) as e:
-                logger.debug('[request_remote][server_error] %s', repr(e))
-            except DNSError as e:
-                logger.debug('[request_remote][dns_error] %s', repr(e))
             except Exception as e:
-                logger.error('[request_remote][error] %s', repr(e))
+                error_type = 'error'
+                if isinstance(e, (asyncio.TimeoutError, AssertionError)):
+                    error_type = 'server_error'
+                elif isinstance(e, DNSError):
+                    error_type = 'dns_error'
+                else:
+                    error_type = 'error'
+                    import traceback
+                    traceback.print_exc()
+                logger.debug('[request_remote][%s] %s %s', error_type, str(addr), repr(e))
+                last_err = e
             else:
                 nameservers.success(addr)
                 return inter_res
             nameservers.fail(addr)
+        else:
+            raise last_err
 
     async def request_once(self, req, addr):
         '''Return response to a request.

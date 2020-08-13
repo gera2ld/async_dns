@@ -72,7 +72,7 @@ class Resolver:
             query = Query(self, fqdn, qtype, tick)
             def clear(future):
                 self._queries.pop(key, None)
-            future = asyncio.create_task(query.query())
+            future = asyncio.ensure_future(query.query())
             future.add_done_callback(clear)
             self._queries[key] = future
         return future
