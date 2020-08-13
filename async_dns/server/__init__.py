@@ -16,15 +16,15 @@ async def handle_dns(resolver, data, addr, protocol):
     for question in msg.qd:
         try:
             error = None
-            res, from_cache = await resolver.query_with_cache(question.name, question.qtype)
+            res, cached = await resolver.query_with_timeout(question.name, question.qtype)
         except Exception as e:
             import traceback
             logger.debug('[server_handle][%s][%s] %s', types.get_name(question.qtype), question.name, traceback.format_exc())
             error = str(e)
-            res, from_cache = None, None
+            res, cached = None, None
         if res is not None:
             res.qid = msg.qid
-            data = res.pack(size_limit=512 if UDP.is_protocol(protocol) else None) # rfc2181
+            data = res.pack(size_limit=512 if protocol == 'udp' else None) # rfc2181
             len_data = len(data)
             yield data
             res_code = res.r
@@ -34,7 +34,7 @@ async def handle_dns(resolver, data, addr, protocol):
         logger.info(
             '[%s|%s|%s|%s] %s %d %d %s',
             protocol,
-            'cache' if from_cache else 'remote',
+            'cache' if cached else 'remote',
             addr[0],
             types.get_name(question.qtype),
             question.name,
@@ -56,7 +56,7 @@ class TCPHandler:
             except asyncio.IncompleteReadError:
                 break
             data = await reader.readexactly(size)
-            async for result in handle_dns(self.resolver, data, addr, TCP):
+            async for result in handle_dns(self.resolver, data, addr, 'tcp'):
                 bsize = struct.pack('!H', len(result))
                 writer.write(bsize)
                 writer.write(result)
@@ -75,7 +75,7 @@ class DNSDatagramProtocol(asyncio.DatagramProtocol):
         asyncio.ensure_future(self.handle(data, addr))
 
     async def handle(self, data, addr):
-        async for result in handle_dns(self.resolver, data, addr, UDP):
+        async for result in handle_dns(self.resolver, data, addr, 'udp'):
             self.transport.sendto(result, addr)
 
 async def start_dns_server(

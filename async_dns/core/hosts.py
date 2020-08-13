@@ -14,13 +14,14 @@ def parse_hosts_file(filename=None):
     filename = os.path.expanduser(filename)
     if not os.path.isfile(filename):
         return
-    for line in open(filename, 'r'):
-        items = line.strip().split('#')[0].split()
-        try:
-            it = iter(items)
-            addr = Address.parse(next(it))
-        except StopIteration:
-            pass
-        else:
-            for name in it:
-                yield Record(name=name, qtype=addr.ip_type, ttl=-1, data=addr.host)
+    with open(filename, 'r') as f:
+        for line in f:
+            items = line.strip().split('#')[0].split()
+            try:
+                it = iter(items)
+                addr = Address.parse(next(it))
+            except StopIteration:
+                pass
+            else:
+                for name in it:
+                    yield Record(name=name, qtype=addr.ip_type, ttl=-1, data=addr.hostinfo.hostname)
