@@ -41,11 +41,13 @@ $ python3 -m async_dns.resolver www.google.com
 $ python3 -m async_dns.resolver -t mx -- gmail.com
 
 # Query via TCP
-$ python3 -m async_dns.resolver -n tcp://127.0.0.1 www.google.com
+$ python3 -m async_dns.resolver -n tcp://127.0.0.1 -- www.google.com
 
 # Query from non-standard ports
-$ python3 -m async_dns.resolver -n udp://127.0.0.1:1053 www.google.com
+$ python3 -m async_dns.resolver -n udp://127.0.0.1:1053 -- www.google.com
 ```
+
+**Note:** `--` is required before `hostname`s if the previous option can have multiple arguments.
 
 ### Server
 ```

@@ -116,6 +116,6 @@ class Address:
         if hostinfo.port is None and data.scheme in ('udp', 'tcp'):
             hostinfo.port = 53
         addr = Address(hostinfo, data.scheme, data.path)
-        if not allow_domain:
-            assert addr.ip_type, InvalidHost(hostinfo.hostname)
+        if not allow_domain and addr.ip_type is None:
+            raise InvalidHost(hostinfo.hostname)
         return addr
