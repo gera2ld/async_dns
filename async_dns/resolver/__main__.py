@@ -28,7 +28,7 @@ async def resolve_hostname(resolver, hostname, qtype):
         res.an.append(Record(qtype=addr.ip_type, data=hostname))
         return res
 
-def resolve_hostnames(args):
+async def resolve_hostnames(args):
     '''Resolve hostnames passed from process arguments.'''
     resolver = ProxyResolver()
     if args.nameservers:
@@ -41,9 +41,7 @@ def resolve_hostnames(args):
                 logger.warn('Unknown type: %s', qtype_name)
                 continue
             results.append(resolve_hostname(resolver, hostname, qtype))
-    loop = asyncio.get_event_loop()
-    wait = asyncio.wait(results, timeout=3, loop=loop)
-    done, _ = loop.run_until_complete(wait)
+    done, _ = await asyncio.wait(results, timeout=3)
     for fut in done:
         res = fut.result()
         hostname = res.qd[0].name
@@ -54,4 +52,6 @@ def resolve_hostnames(args):
                 item.data,
             ))
 
-resolve_hostnames(_parse_args())
+# asyncio.run is added in 3.7
+loop = asyncio.get_event_loop()
+loop.run_until_complete(resolve_hostnames(_parse_args()))
