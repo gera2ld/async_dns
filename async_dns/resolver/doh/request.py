@@ -18,7 +18,7 @@ class ConnectionPool:
     def get(cls, host, port=None, ssl=False, max_size=5):
         if port is None:
             port = 443 if ssl else 80
-        key = host, port, ssl
+        key = host, port, bool(ssl)
         pool = cls.pools.get(key)
         if pool is None:
             pool = cls(host, port, ssl, max_size)
@@ -28,6 +28,7 @@ class ConnectionPool:
     def __init__(self, host, port, ssl, max_size):
         self.addr = host, port
         self.ssl = ssl
+        self.key = host, port, bool(ssl)
         self.connections = set()
         self.requests = asyncio.Queue()
         self.booting = set()
@@ -95,6 +96,20 @@ class ConnectionPool:
         if conn.timer: conn.timer.cancel()
         self.connections.discard(conn)
         self.size += 1
+
+    def destroy(self):
+        for task in self.booting:
+            task.cancel()
+        for conn in self.connections:
+            self.discard_connection(conn)
+        self.booting.clear()
+        self.connections.clear()
+        while True:
+            try:
+                self.requests.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        self.pools.pop(self.key, None)
 
 
 class Response:
