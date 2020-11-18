@@ -314,3 +314,12 @@ class DNSMessage:
         l, ans.ns = ans.parse_entry(RESPONSE, data, l, ns)
         l, ans.ar = ans.parse_entry(RESPONSE, data, l, ar)
         return ans
+
+    def get_record(self, qtypes):
+        '''Get the first record of qtype defined in `qtypes` in answer list.
+        '''
+        if isinstance(qtypes, str):
+            qtypes = qtypes,
+        for item in self.an:
+            if item.qtype in qtypes:
+                return item.data

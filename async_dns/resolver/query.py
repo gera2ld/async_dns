@@ -11,7 +11,7 @@ class Query:
     protocols = {
         'tcp': tcp.request,
         'udp': udp.request,
-        'https': doh.request_wrapper(),
+        'https': doh.request,
     }
 
     def __init__(self, resolver, fqdn, qtype, tick):

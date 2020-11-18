@@ -1,12 +1,15 @@
 import asyncio
 import functools
 import urllib.parse
+from async_dns import types
+
 
 class Connection:
     def __init__(self, reader, writer, timer=None):
         self.reader = reader
         self.writer = writer
         self.timer = timer
+
 
 class ConnectionPool:
     pools = {}
@@ -32,7 +35,8 @@ class ConnectionPool:
         self.size = 0
 
     def create_connection(self):
-        task = asyncio.create_task(asyncio.open_connection(*self.addr, ssl=self.ssl))
+        task = asyncio.create_task(
+            asyncio.open_connection(*self.addr, ssl=self.ssl))
         self.booting.add(task)
         task.add_done_callback(functools.partial(self.on_connection))
 
@@ -83,13 +87,15 @@ class ConnectionPool:
     def put_connection(self, conn):
         self.connections.add(conn)
         loop = asyncio.get_running_loop()
-        conn.timer = loop.call_later(10, functools.partial(self.discard_connection, conn))
+        conn.timer = loop.call_later(
+            10, functools.partial(self.discard_connection, conn))
 
     def discard_connection(self, conn):
         conn.writer.close()
         if conn.timer: conn.timer.cancel()
         self.connections.discard(conn)
         self.size += 1
+
 
 class Response:
     def __init__(self, status, message, headers, data, url):
@@ -101,6 +107,7 @@ class Response:
 
     def __repr__(self):
         return f'<Response status={self.status} message="{self.message}" url="{self.url}" data={self.data}>'
+
 
 async def read_data(reader):
     headers = []
@@ -120,7 +127,13 @@ async def read_data(reader):
     data = await reader.read(length)
     return status, message, headers, data
 
-async def request(url, method='GET', params=None, data=None, headers=None, ip=None):
+
+async def send_request(url,
+                       method='GET',
+                       params=None,
+                       data=None,
+                       headers=None,
+                       resolver=None):
     if '://' not in url:
         url = 'http://' + url
     if params:
@@ -133,7 +146,12 @@ async def request(url, method='GET', params=None, data=None, headers=None, ip=No
     path = res.path or '/'
     if res.query: path += '?' + res.query
     ssl = res.scheme == 'https'
-    pool = ConnectionPool.get(ip or res.hostname, res.port, ssl)
+    hostname = res.hostname
+    if resolver is not None:
+        msg = await resolver.query(hostname)
+        hostname = msg.get_record((types.A, types.AAAA))
+        assert hostname, 'DNS lookup failed'
+    pool = ConnectionPool.get(hostname, res.port, ssl)
     conn = await pool.get_connection()
     reader = conn.reader
     writer = conn.writer
@@ -154,8 +172,10 @@ async def request(url, method='GET', params=None, data=None, headers=None, ip=No
     pool.put_connection(conn)
     return Response(status, message, headers, data, url)
 
+
 if __name__ == '__main__':
+
     async def main():
-        print(await request('https://www.baidu.com'))
+        print(await send_request('https://www.baidu.com'))
 
     asyncio.run(main())
