@@ -11,6 +11,12 @@ readme = 'README.md'
 [tool.poetry.dependencies]
 python = "^3.6"
 
+[tool.poetry.dev-dependencies]
+jedi = "^0.17.2"
+pylint = "^2.6.0"
+rope = "^0.18.0"
+yapf = "^0.30.0"
+
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"

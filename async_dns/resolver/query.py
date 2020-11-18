@@ -1,5 +1,5 @@
 import asyncio
-from . import tcp, udp
+from . import tcp, udp, doh
 from async_dns.core import DNSError, DNSMessage, NameServers, logger, types, REQUEST, Record
 
 A_TYPES = types.A, types.AAAA
@@ -11,6 +11,7 @@ class Query:
     protocols = {
         'tcp': tcp.request,
         'udp': udp.request,
+        'https': doh.request_wrapper(),
     }
 
     def __init__(self, resolver, fqdn, qtype, tick):
