@@ -110,7 +110,9 @@ Both `resolver.query(fqdn, qtype=ANY, timeout=3.0, tick=5)` and `resolver.query_
 
 ## DoH support
 
-DoH (aka DNS over HTTPS) is supported via [async-doh](https://github.com/gera2ld/async-doh), go there for more details.
+This library contains a simple implementation of DoH (aka DNS over HTTPS).
+
+If you need a more powerful DoH client based on [aiohttp](https://docs.aiohttp.org/en/stable/), consider [async-doh](https://github.com/gera2ld/async-doh).
 
 ## Test
 
