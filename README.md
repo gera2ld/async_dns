@@ -45,6 +45,9 @@ $ python3 -m async_dns.resolver -n tcp://127.0.0.1 -- www.google.com
 
 # Query from non-standard ports
 $ python3 -m async_dns.resolver -n udp://127.0.0.1:1053 -- www.google.com
+
+# Query from HTTPS
+$ python3 -m async_dns.resolver -n https://dns.alidns.com/dns-query -- www.google.com
 ```
 
 **Note:** `--` is required before `hostname`s if the previous option can have multiple arguments.
