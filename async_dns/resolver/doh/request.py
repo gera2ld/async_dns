@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import urllib.parse
+from collections import deque
 from async_dns import types
 
 
@@ -15,7 +16,7 @@ class ConnectionPool:
     pools = {}
 
     @classmethod
-    def get(cls, host, port=None, ssl=False, max_size=5):
+    def get(cls, host, port=None, ssl=False, max_size=6):
         if port is None:
             port = 443 if ssl else 80
         key = host, port, bool(ssl)
@@ -29,86 +30,102 @@ class ConnectionPool:
         self.addr = host, port
         self.ssl = ssl
         self.key = host, port, bool(ssl)
+        self.tasks = set()
         self.connections = set()
-        self.requests = asyncio.Queue()
-        self.booting = set()
+        self.requests = deque()
         self.max_size = max_size
         self.size = 0
 
-    def create_connection(self):
-        task = asyncio.create_task(
-            asyncio.open_connection(*self.addr, ssl=self.ssl))
-        self.booting.add(task)
-        task.add_done_callback(functools.partial(self.on_connection))
+    def on_connection(self, result):
+        reader, writer = result
+        self.connections.add(Connection(reader, writer))
+        self.check()
 
-    def on_connection(self, task):
-        self.booting.discard(task)
-        try:
-            reader, writer = task.result()
-            self.connections.add(Connection(reader, writer))
-            self.check()
-        except Exception:
-            self.size -= 1
+    def on_connection_error(self, exc):
+        self.size -= 1
 
     def check(self):
-        while self.requests.qsize() > 0:
-            try:
-                conn = self.connections.pop()
-            except KeyError:
-                break
-            else:
-                future = self.requests.get_nowait()
-                future.set_result(conn)
-        for _ in range(self.requests.qsize()):
-            if self.size < self.max_size:
-                self.size += 1
-                self.create_connection()
-            else:
-                break
-
-    async def get_connection(self):
-        try:
+        while len(self.requests) > 0 and len(self.connections) > 0:
+            future = self.requests.popleft()
             conn = self.connections.pop()
-        except KeyError:
-            loop = asyncio.get_running_loop()
-            future = loop.create_future()
-            await self.requests.put(future)
-            loop.call_soon(self.check)
-            conn = await future
+            self.ensure_task(self.acquire_connection(conn, future))
+        for _ in self.requests:
+            if self.size >= self.max_size:
+                break
+            self.size += 1
+            self.ensure_task(asyncio.open_connection(*self.addr, ssl=self.ssl),
+                             self.on_connection, self.on_connection_error)
+
+    def check_later(self):
+        loop = asyncio.get_event_loop()
+        loop.call_soon(self.check)
+
+    def ensure_task(self, coro, on_success=None, on_error=None):
+        task = asyncio.create_task(coro)
+        self.tasks.add(task)
+
+        def on_done(task):
+            try:
+                result = task.result()
+                if on_success is not None: on_success(result)
+            except Exception as exc:
+                if on_error is not None: on_error(exc)
+            self.tasks.remove(task)
+
+        task.add_done_callback(on_done)
+
+    async def acquire_connection(self, conn, future):
         try:
             await conn.writer.drain()
         except Exception:
             self.discard_connection(conn)
-            raise
+            if not future.done():
+                self.requests.appendleft(future)
+            return False
         if conn.timer:
             conn.timer.cancel()
             conn.timer = None
-        return conn
+        if future.done():
+            self.put_connection(conn)
+        else:
+            future.set_result(conn)
+        return True
+
+    async def get_connection(self):
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        self.requests.append(future)
+        self.check_later()
+        try:
+            result = await future
+            return result
+        except asyncio.CancelledError:
+            future.cancel()
+            raise
 
     def put_connection(self, conn):
         self.connections.add(conn)
         loop = asyncio.get_running_loop()
         conn.timer = loop.call_later(
             10, functools.partial(self.discard_connection, conn))
+        self.check_later()
 
     def discard_connection(self, conn):
         conn.writer.close()
         if conn.timer: conn.timer.cancel()
         self.connections.discard(conn)
-        self.size += 1
+        self.size -= 1
 
     def destroy(self):
-        for task in self.booting:
+        for task in self.tasks:
             task.cancel()
         for conn in self.connections:
             self.discard_connection(conn)
-        self.booting.clear()
+        for fut in self.requests:
+            fut.cancel()
+        self.tasks.clear()
         self.connections.clear()
-        while True:
-            try:
-                self.requests.get_nowait()
-            except asyncio.QueueEmpty:
-                break
+        self.requests.clear()
         self.pools.pop(self.key, None)
 
 
@@ -168,24 +185,26 @@ async def send_request(url,
         assert hostname, 'DNS lookup failed'
     pool = ConnectionPool.get(hostname, res.port, ssl)
     conn = await pool.get_connection()
-    reader = conn.reader
-    writer = conn.writer
-    writer.write(f'{method} {path} HTTP/1.1\r\n'.encode())
-    merged_headers = {
-        'Host': res.hostname,
-    }
-    if headers: merged_headers.update(headers)
-    if data:
-        merged_headers['Content-Length'] = len(data)
-    for key, value in merged_headers.items():
-        writer.write(f'{key}: {value}\r\n'.encode())
-    writer.write(b'\r\n')
-    if data:
-        writer.write(data)
-    await writer.drain()
-    status, message, headers, data = await read_data(reader)
-    pool.put_connection(conn)
-    return Response(status, message, headers, data, url)
+    try:
+        reader = conn.reader
+        writer = conn.writer
+        writer.write(f'{method} {path} HTTP/1.1\r\n'.encode())
+        merged_headers = {
+            'Host': res.hostname,
+        }
+        if headers: merged_headers.update(headers)
+        if data:
+            merged_headers['Content-Length'] = len(data)
+        for key, value in merged_headers.items():
+            writer.write(f'{key}: {value}\r\n'.encode())
+        writer.write(b'\r\n')
+        if data:
+            writer.write(data)
+        await writer.drain()
+        status, message, headers, data = await read_data(reader)
+        return Response(status, message, headers, data, url)
+    finally:
+        pool.put_connection(conn)
 
 
 if __name__ == '__main__':
