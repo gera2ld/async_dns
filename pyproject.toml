@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "async_dns"
-version = "1.1.4"
+version = "1.1.5"
 description = "Asynchronous DNS client and server"
 authors = ["Gerald <gera2ld@live.com>"]
 license = "MIT"
