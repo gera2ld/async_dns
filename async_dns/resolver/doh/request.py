@@ -61,7 +61,7 @@ class ConnectionPool:
         loop.call_soon(self.check)
 
     def ensure_task(self, coro, on_success=None, on_error=None):
-        task = asyncio.create_task(coro)
+        task = asyncio.ensure_future(coro)
         self.tasks.add(task)
 
         def on_done(task):
