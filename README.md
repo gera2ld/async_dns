@@ -2,9 +2,16 @@
 
 [![PyPI](https://img.shields.io/pypi/v/async_dns.svg)]()
 
-Asynchronous DNS server and client built with pure Python.
+## Features
 
-Requirements: Python >=3.6
+- Built with `asyncio` in pure Python, no third party dependency is required
+- Support DNS over UDP / TCP
+- Support DNS over HTTPS
+- Support DNS over TLS
+
+## Prerequisite
+
+- Python >=3.6
 
 ## Installation
 
@@ -17,6 +24,7 @@ $ pip3 install git+https://github.com/gera2ld/async_dns.git
 ## CLI
 
 ### Resolver
+
 ```
 usage: python3 -m async_dns.resolver [-h] [-n NAMESERVERS [NAMESERVERS ...]] [-t TYPES [TYPES ...]]
                                      hostnames [hostnames ...]
@@ -35,6 +43,7 @@ optional arguments:
 ```
 
 Examples:
+
 ``` sh
 # Resolve an IP
 $ python3 -m async_dns.resolver www.google.com
@@ -42,6 +51,9 @@ $ python3 -m async_dns.resolver -t mx -- gmail.com
 
 # Query via TCP
 $ python3 -m async_dns.resolver -n tcp://127.0.0.1 -- www.google.com
+
+# Query via TLS
+$ python3 -m async_dns.resolver -n tcps://dns.alidns.com -- www.google.com
 
 # Query from non-standard ports
 $ python3 -m async_dns.resolver -n udp://127.0.0.1:1053 -- www.google.com
@@ -53,6 +65,7 @@ $ python3 -m async_dns.resolver -n https://dns.alidns.com/dns-query -- www.googl
 **Note:** `--` is required before `hostname`s if the previous option can have multiple arguments.
 
 ### Server
+
 ```
 usage: python3 -m async_dns.server [-h] [-b BIND] [--hosts HOSTS] [-x [PROXY [PROXY ...]]]
 
@@ -68,7 +81,10 @@ optional arguments:
                         proxy to default nameservers
 ```
 
+**Note:** TLS and HTTPS are not supported in `async_dns` server. Consider [async-doh](https://github.com/gera2ld/async-doh) for DoH server support.
+
 Examples:
+
 ``` sh
 # Start a DNS proxy server on :53
 $ python3 -m async_dns.server -b :53 --hosts /etc/hosts
@@ -110,9 +126,9 @@ Both `resolver.query(fqdn, qtype=ANY, timeout=3.0, tick=5)` and `resolver.query_
 
 ## DoH support
 
-This library contains a simple implementation of DoH (aka DNS over HTTPS).
+This library contains a simple implementation of DoH (aka DNS over HTTPS) client with partial HTTP protocol implemented.
 
-If you need a more powerful DoH client based on [aiohttp](https://docs.aiohttp.org/en/stable/), consider [async-doh](https://github.com/gera2ld/async-doh).
+If you need a more powerful DoH client based on [aiohttp](https://docs.aiohttp.org/en/stable/), or a DoH server, consider [async-doh](https://github.com/gera2ld/async-doh).
 
 ## Test
 
