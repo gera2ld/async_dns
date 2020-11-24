@@ -4,16 +4,14 @@ Request using TCP protocol.
 import asyncio
 import struct
 from async_dns.core import DNSMessage
-from .util import ConnectionPool
+from .util import ConnectionHandle
 
 
 async def request(req, addr, timeout=3.0):
     '''
     Send raw data with a connection pool.
     '''
-    pool = ConnectionPool.get(*addr.to_addr(), ssl=addr.protocol == 'tcps')
-    conn = await pool.get_connection()
-    try:
+    async with ConnectionHandle(*addr.to_addr(), ssl=addr.protocol == 'tcps') as conn:
         reader = conn.reader
         writer = conn.writer
         qdata = req.pack()
@@ -25,5 +23,3 @@ async def request(req, addr, timeout=3.0):
         data = await reader.readexactly(size)
         result = DNSMessage.parse(data)
         return result
-    finally:
-        pool.put_connection(conn)

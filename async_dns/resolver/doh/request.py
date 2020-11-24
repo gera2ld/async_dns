@@ -1,6 +1,6 @@
 import urllib.parse
 from async_dns import types
-from ..util import ConnectionPool
+from ..util import ConnectionHandle
 
 
 class Response:
@@ -57,9 +57,7 @@ async def send_request(url,
         msg = await resolver.query(hostname)
         hostname = msg.get_record((types.A, types.AAAA))
         assert hostname, 'DNS lookup failed'
-    pool = ConnectionPool.get(hostname, res.port, ssl)
-    conn = await pool.get_connection()
-    try:
+    async with ConnectionHandle(hostname, res.port, ssl) as conn:
         reader = conn.reader
         writer = conn.writer
         writer.write(f'{method} {path} HTTP/1.1\r\n'.encode())
@@ -76,9 +74,8 @@ async def send_request(url,
             writer.write(data)
         await writer.drain()
         status, message, headers, data = await read_data(reader)
-        return Response(status, message, headers, data, url)
-    finally:
-        pool.put_connection(conn)
+        resp = Response(status, message, headers, data, url)
+        return resp
 
 
 if __name__ == '__main__':

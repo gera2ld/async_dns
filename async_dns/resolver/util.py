@@ -125,3 +125,19 @@ class ConnectionPool:
         self.connections.clear()
         self.requests.clear()
         self.pools.pop(self.key, None)
+
+
+class ConnectionHandle:
+    def __init__(self, *k, **kw):
+        self.pool = ConnectionPool.get(*k, **kw)
+        self.conn = None
+
+    async def __aenter__(self):
+        self.conn = await self.pool.get_connection()
+        return self.conn
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if exc is None:
+            self.pool.put_connection(self.conn)
+        else:
+            self.pool.discard_connection(self.conn)
