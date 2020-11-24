@@ -105,6 +105,13 @@ class Address:
             return '.'.join(reversed(self.hostinfo.hostname.split('.'))) + '.in-addr.arpa'
         raise InvalidIP(self.hostinfo.hostname)
 
+    default_ports = {
+        'tcp': 53,
+        'udp': 53,
+        'tcps': 853,
+        'https': 443,
+    }
+
     @classmethod
     def parse(cls, value, default_protocol=None, allow_domain=False):
         if isinstance(value, Address):
@@ -113,8 +120,8 @@ class Address:
             value = '//' + value
         data = urlparse(value, scheme=default_protocol or 'udp')
         hostinfo = Host(data.netloc)
-        if hostinfo.port is None and data.scheme in ('udp', 'tcp'):
-            hostinfo.port = 53
+        if hostinfo.port is None:
+            hostinfo.port = cls.default_ports.get(data.scheme, 53)
         addr = Address(hostinfo, data.scheme, data.path)
         if not allow_domain and addr.ip_type is None:
             raise InvalidHost(hostinfo.hostname)

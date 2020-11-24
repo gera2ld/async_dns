@@ -40,7 +40,7 @@ async def resolve_hostnames(args):
             if qtype is None:
                 logger.warn('Unknown type: %s', qtype_name)
                 continue
-            results.append(resolve_hostname(resolver, hostname, qtype))
+            results.append(asyncio.ensure_future(resolve_hostname(resolver, hostname, qtype)))
     done, _ = await asyncio.wait(results, timeout=3)
     for fut in done:
         res = fut.result()

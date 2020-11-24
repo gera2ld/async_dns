@@ -10,6 +10,7 @@ REJECTED = 2
 class Query:
     protocols = {
         'tcp': tcp.request,
+        'tcps': tcp.request,
         'udp': udp.request,
         'https': doh.request,
     }
