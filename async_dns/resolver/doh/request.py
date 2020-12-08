@@ -52,12 +52,12 @@ async def send_request(url,
     path = res.path or '/'
     if res.query: path += '?' + res.query
     ssl = res.scheme == 'https'
-    hostname = res.hostname
+    host = res.hostname
     if resolver is not None:
-        msg = await resolver.query(hostname)
-        hostname = msg.get_record((types.A, types.AAAA))
-        assert hostname, 'DNS lookup failed'
-    async with ConnectionHandle(hostname, res.port, ssl) as conn:
+        msg = await resolver.query(host)
+        host = msg.get_record((types.A, types.AAAA))
+        assert host, 'DNS lookup failed'
+    async with ConnectionHandle(host, res.port, ssl, res.hostname) as conn:
         reader = conn.reader
         writer = conn.writer
         writer.write(f'{method} {path} HTTP/1.1\r\n'.encode())

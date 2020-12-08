@@ -1,6 +1,7 @@
 import asyncio
 import functools
 from collections import deque
+from async_dns.core import logger
 
 
 class Connection:
@@ -14,20 +15,21 @@ class ConnectionPool:
     pools = {}
 
     @classmethod
-    def get(cls, host, port=None, ssl=False, max_size=6):
+    def get(cls, host, port=None, ssl=False, hostname=None, max_size=6):
         if port is None:
             port = 443 if ssl else 80
-        key = host, port, ssl
+        key = host, port, ssl, hostname
         pool = cls.pools.get(key)
         if pool is None:
-            pool = cls(host, port, ssl, max_size)
+            pool = cls(host, port, ssl, hostname, max_size)
             cls.pools[key] = pool
         return pool
 
-    def __init__(self, host, port, ssl, max_size):
+    def __init__(self, host, port, ssl, hostname, max_size):
         self.addr = host, port
         self.ssl = ssl
-        self.key = host, port, ssl
+        self.hostname = hostname
+        self.key = host, port, ssl, hostname
         self.tasks = set()
         self.connections = set()
         self.requests = deque()
@@ -40,6 +42,7 @@ class ConnectionPool:
         self.check()
 
     def on_connection_error(self, exc):
+        logger.debug('[connect_error] %s:%port', self.hostname or self.addr[0], self.addr[1])
         self.size -= 1
 
     def check(self):
@@ -51,8 +54,11 @@ class ConnectionPool:
             if self.size >= self.max_size:
                 break
             self.size += 1
-            self.ensure_task(asyncio.open_connection(*self.addr, ssl=self.ssl),
-                             self.on_connection, self.on_connection_error)
+            self.ensure_task(
+                asyncio.open_connection(*self.addr,
+                                        ssl=self.ssl,
+                                        server_hostname=self.hostname),
+                self.on_connection, self.on_connection_error)
 
     def check_later(self):
         loop = asyncio.get_event_loop()
