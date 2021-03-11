@@ -92,6 +92,16 @@ class Query:
         inter_res = await self.query_remote_once(domain, nameservers)
         cname = []
         has_ns = False
+        
+        result.qr = inter_res.qr      # 0 for request, 1 for response
+        result.qid = inter_res.qid    # id for UDP package
+        result.o = inter_res.o        # opcode: 0 for standard query
+        result.aa = inter_res.aa      # Authoritative Answer
+        result.tc = inter_res.tc      # TrunCation, will be updated on .pack()
+        result.rd = inter_res.rd      # Recursion Desired for request
+        result.ra = inter_res.ra      # Recursion Available for response
+        result.r = inter_res.r        # rcode: 0 for success
+        
         for rec in inter_res.an:
             result.an.append(rec)
             if rec.qtype == types.CNAME:
