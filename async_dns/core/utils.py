@@ -5,6 +5,7 @@ Utility methods for parsing and packing DNS record data.
 import struct
 import io
 
+
 class ParseError(Exception):
     def __init__(self, data, offset):
         super().__init__()
@@ -17,13 +18,14 @@ class ParseError(Exception):
     data_len={len(self.data)}
     data={self.data}>'''
 
-def load_message(data, offset, lower=True):
-    '''Return the full name and offset from packed data.'''
+
+def load_domain_name(buffer, offset):
+    '''Load a domain name from packed data'''
     parts = []
     cursor = None
-    data_len = len(data)
+    data_len = len(buffer)
     while offset < data_len:
-        length = data[offset]
+        length = buffer[offset]
         offset += 1
         if length == 0:
             if cursor is None:
@@ -32,15 +34,22 @@ def load_message(data, offset, lower=True):
         if length >= 0xc0:
             if cursor is None:
                 cursor = offset + 1
-            offset = (length - 0xc0) * 256 + data[offset]
+            offset = (length - 0xc0) * 256 + buffer[offset]
             continue
-        parts.append(data[offset : offset + length])
+        parts.append(buffer[offset:offset + length])
         offset += length
-    assert cursor is not None, ParseError(data, offset)
+    assert cursor is not None, ParseError(buffer, offset)
     data = b'.'.join(parts).decode()
-    if lower:
-        data = data.lower()
     return cursor, data
+
+
+def load_string(buffer, offset):
+    '''Load a character string from packed data.'''
+    length = buffer[offset]
+    offset += 1
+    data = buffer[offset:offset + length]
+    return offset + length, data
+
 
 def pack_string(string, btype='B'):
     '''Pack string into `{length}{data}` format.'''
@@ -49,13 +58,15 @@ def pack_string(string, btype='B'):
     length = len(string)
     return struct.pack('%s%ds' % (btype, length), length, string)
 
+
 def get_bits(num, bit_len):
     '''Get lower and higher bits breaking at bit_len from num.'''
     high = num >> bit_len
     low = num - (high << bit_len)
     return low, high
 
-def pack_message(name, names, offset=0):
+
+def pack_domain_name(name, names, offset=0):
     parts = name.split('.')
     buf = io.BytesIO()
     while parts:

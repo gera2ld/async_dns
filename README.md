@@ -135,3 +135,8 @@ If you need a more powerful DoH client based on [aiohttp](https://docs.aiohttp.o
 ``` sh
 $ python3 -m unittest
 ```
+
+## References
+
+- <https://tools.ietf.org/html/rfc1035>
+- <https://tools.ietf.org/html/rfc2915> NAPTR
