@@ -7,13 +7,15 @@ import io
 
 
 class ParseError(Exception):
-    def __init__(self, data, offset):
+    def __init__(self, data, offset, message):
         super().__init__()
         self.data = data
         self.offset = offset
+        self.message = message
 
     def __repr__(self):
         return f'''<ParseError
+    message={self.message}
     offset={self.offset}
     data_len={len(self.data)}
     data={self.data}>'''
@@ -24,7 +26,11 @@ def load_domain_name(buffer, offset):
     parts = []
     cursor = None
     data_len = len(buffer)
+    visited = set()
     while offset < data_len:
+        if offset in visited:
+            raise ParseError(buffer, offset, 'Pointer loop detected')
+        visited.add(offset)
         length = buffer[offset]
         offset += 1
         if length == 0:
@@ -38,7 +44,8 @@ def load_domain_name(buffer, offset):
             continue
         parts.append(buffer[offset:offset + length])
         offset += length
-    assert cursor is not None, ParseError(buffer, offset)
+    if cursor is None:
+        raise ParseError(buffer, offset, 'Bad data')
     data = b'.'.join(parts).decode()
     return cursor, data
 
