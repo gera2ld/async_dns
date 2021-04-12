@@ -1,5 +1,10 @@
-import time, socket, struct, io
-from . import utils, types
+import io
+import socket
+import struct
+import time
+
+from . import types
+from .util import get_bits, load_domain_name, load_string, pack_domain_name, pack_string
 
 __all__ = [
     'REQUEST',
@@ -59,8 +64,8 @@ class SOA_RData(RData):
 
     @classmethod
     def load(cls, data, l):
-        i, mname = utils.load_domain_name(data, l)
-        i, rname = utils.load_domain_name(data, i)
+        i, mname = load_domain_name(data, l)
+        i, rname = load_domain_name(data, i)
         (
             serial,
             refresh,
@@ -93,7 +98,7 @@ class MX_RData(RData):
     @classmethod
     def load(cls, data, l):
         preference, = struct.unpack('!H', data[l:l + 2])
-        i, exchange = utils.load_domain_name(data, l + 2)
+        i, exchange = load_domain_name(data, l + 2)
         return i, cls(preference, exchange)
 
     def dump(self, pack_name, offset):
@@ -116,7 +121,7 @@ class SRV_RData(RData):
     @classmethod
     def load(cls, data, l):
         priority, weight, port = struct.unpack('!HHH', data[l:l + 6])
-        i, hostname = utils.load_domain_name(data, l + 6)
+        i, hostname = load_domain_name(data, l + 6)
         return i, cls(priority, weight, port, hostname)
 
     def dump(self, pack_name, offset):
@@ -154,7 +159,7 @@ class NAPTR_RData(RData):
         pos += 1
         regexp = data[pos:pos + length].decode()
         pos += length
-        i, replacement = utils.load_domain_name(data, pos)
+        i, replacement = load_domain_name(data, pos)
         return i, cls(order, preference, flags, service, regexp, replacement)
 
     def dump(self, pack_name, offset):
@@ -193,7 +198,7 @@ class Record:
                       data=kw.get('data', self.data))
 
     def parse(self, data, l):
-        l, self.name = utils.load_domain_name(data, l)
+        l, self.name = load_domain_name(data, l)
         self.qtype, self.qclass = struct.unpack('!HH', data[l:l + 4])
         l += 4
         if self.q == RESPONSE:
@@ -213,9 +218,9 @@ class Record:
             elif self.qtype == types.SOA:
                 _, self.data = SOA_RData.load(data, l)
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
-                _, self.data = utils.load_domain_name(data, l)
+                _, self.data = load_domain_name(data, l)
             elif self.qtype in (types.TXT, ):
-                _, self.data = utils.load_string(data, l)
+                _, self.data = load_string(data, l)
             else:
                 self.data = data[l:l + dl]
             l += dl
@@ -223,10 +228,10 @@ class Record:
 
     def pack(self, names, offset=0):
         def pack_name(name, pack_offset):
-            return utils.pack_domain_name(name, names, pack_offset)
+            return pack_domain_name(name, names, pack_offset)
 
         buf = io.BytesIO()
-        buf.write(utils.pack_domain_name(self.name, names, offset))
+        buf.write(pack_domain_name(self.name, names, offset))
         buf.write(struct.pack('!HH', self.qtype, self.qclass))
         if self.q == RESPONSE:
             if self.ttl < 0:
@@ -242,23 +247,23 @@ class Record:
             if isinstance(self.data, RData):
                 data_str = b''.join(
                     self.data.dump(pack_name, offset + buf.tell()))
-                buf.write(utils.pack_string(data_str, '!H'))
+                buf.write(pack_string(data_str, '!H'))
             elif self.qtype == types.A:
-                buf.write(utils.pack_string(socket.inet_aton(self.data), '!H'))
+                buf.write(pack_string(socket.inet_aton(self.data), '!H'))
             elif self.qtype == types.AAAA:
                 buf.write(
-                    utils.pack_string(
-                        socket.inet_pton(socket.AF_INET6, self.data), '!H'))
+                    pack_string(socket.inet_pton(socket.AF_INET6, self.data),
+                                '!H'))
             elif self.qtype in (types.CNAME, types.NS, types.PTR):
                 name = pack_name(self.data, offset + buf.tell() + 2)
-                buf.write(utils.pack_string(name, '!H'))
+                buf.write(pack_string(name, '!H'))
             else:
-                buf.write(utils.pack_string(self.data))
+                buf.write(pack_string(self.data))
         return buf.getvalue()
 
 
 class DNSMessage:
-    def __init__(self, qr=RESPONSE, qid=0, o=0, aa=0, tc=0, rd=1, ra=0, r=0):
+    def __init__(self, qr=RESPONSE, qid=0, o=0, aa=0, tc=0, rd=1, ra=1, r=0):
         self.qr = qr  # 0 for request, 1 for response
         self.qid = qid  # id for UDP package
         self.o = o  # opcode: 0 for standard query
@@ -323,14 +328,14 @@ class DNSMessage:
         rqid, x, qd, an, ns, ar = struct.unpack('!HHHHHH', data[:12])
         if qid is not None and qid != rqid:
             raise DNSError(-1, 'Transaction ID mismatch')
-        r, x = utils.get_bits(x, 4)  # rcode: 0 for no error
-        z, x = utils.get_bits(x, 3)  # reserved
-        ra, x = utils.get_bits(x, 1)  # recursion available
-        rd, x = utils.get_bits(x, 1)  # recursion desired
-        tc, x = utils.get_bits(x, 1)  # truncation
-        aa, x = utils.get_bits(x, 1)  # authoritative answer
-        o, x = utils.get_bits(x, 4)  # opcode
-        qr, x = utils.get_bits(x, 1)  # qr: 0 for query and 1 for response
+        r, x = get_bits(x, 4)  # rcode: 0 for no error
+        z, x = get_bits(x, 3)  # reserved
+        ra, x = get_bits(x, 1)  # recursion available
+        rd, x = get_bits(x, 1)  # recursion desired
+        tc, x = get_bits(x, 1)  # truncation
+        aa, x = get_bits(x, 1)  # authoritative answer
+        o, x = get_bits(x, 4)  # opcode
+        qr, x = get_bits(x, 1)  # qr: 0 for query and 1 for response
         ans = cls(qr, rqid, o, aa, tc, rd, ra, r)
         l, ans.qd = ans.parse_entry(REQUEST, data, 12, qd)
         l, ans.an = ans.parse_entry(RESPONSE, data, l, an)

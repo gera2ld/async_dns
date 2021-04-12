@@ -2,6 +2,7 @@
 This module load nameservers from posix resolv.conf.
 '''
 
+
 def get_nameservers(filename='/etc/resolv.conf'):
     '''
     Load nameservers from resolv.conf file.

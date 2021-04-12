@@ -2,9 +2,10 @@
 Cache module.
 '''
 
-import os
 import json
-from .. import logger, types, Record
+import os
+
+from .. import Record, logger, types
 
 __all__ = [
     'core_config',
@@ -12,7 +13,8 @@ __all__ = [
     'get_root_servers',
 ]
 
-CONFIG_DIR = os.environ.get('ASYNC_DNS_CONFIG_DIR', os.path.expanduser('~/.config/async_dns'))
+CONFIG_DIR = os.environ.get('ASYNC_DNS_CONFIG_DIR',
+                            os.path.expanduser('~/.config/async_dns'))
 os.makedirs(CONFIG_DIR, exist_ok=True)
 CACHE_FILE = os.path.join(CONFIG_DIR, 'named.cache.txt')
 
@@ -30,12 +32,14 @@ if user_config is not None:
     core_config.update(user_config)
     del user_config
 
+
 def get_nameservers():
     return []
 
-def get_name_cache(
-        url='ftp://rs.internic.net/domain/named.cache',
-        filename=CACHE_FILE, timeout=10):
+
+def get_name_cache(url='ftp://rs.internic.net/domain/named.cache',
+                   filename=CACHE_FILE,
+                   timeout=10):
     '''
     Download root nameservers and save cache.
     '''
@@ -47,6 +51,7 @@ def get_name_cache(
         logger.warning('Error fetching named.cache')
     else:
         open(filename, 'wb').write(res.read())
+
 
 def get_root_servers(filename=CACHE_FILE):
     '''
@@ -64,9 +69,9 @@ def get_root_servers(filename=CACHE_FILE):
         if len(parts) < 4:
             continue
         yield Record(
-            name=parts[0].rstrip('.'),   # name
+            name=parts[0].rstrip('.'),  # name
             # parts[1] (expires) is ignored
-            qtype=types.get_code(parts[2], 0),   # qtype
-            data=parts[3].rstrip('.'),   # data
+            qtype=types.get_code(parts[2], 0),  # qtype
+            data=parts[3].rstrip('.'),  # data
             ttl=-1,
         )

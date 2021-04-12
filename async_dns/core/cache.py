@@ -1,5 +1,9 @@
 import time
+
 from . import Record, types
+
+__all__ = ['CacheNode']
+
 
 class CacheValue:
     def __init__(self):
@@ -9,6 +13,10 @@ class CacheValue:
         return record.ttl < 0 or record.timestamp + record.ttl >= time.time()
 
     def get(self, qtype):
+        if qtype == types.ANY:
+            for qt in self.data.keys():
+                yield from self.get(qt)
+            return
         results = self.data.get(qtype)
         if results is not None:
             keys = list(results.keys())
@@ -23,6 +31,7 @@ class CacheValue:
         if self.check_ttl(record):
             results = self.data.setdefault(record.qtype, {})
             results[record.data] = record
+
 
 class CacheNode:
     def __init__(self):
@@ -47,8 +56,6 @@ class CacheNode:
         return current.data
 
     def query(self, fqdn, qtype):
-        if qtype == types.ANY:
-            qtype = types.A, types.AAAA
         if isinstance(qtype, int):
             value = self.get(fqdn)
             if value is not None:

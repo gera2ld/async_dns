@@ -4,6 +4,7 @@ This module load nameservers from Windows Registry.
 
 import winreg
 
+
 def _nt_read_key(hlm, key):
     regkey = winreg.OpenKey(hlm, key)
     try:
@@ -17,20 +18,24 @@ def _nt_read_key(hlm, key):
         sep = ',' if ',' in value else ' '
         return value.split(sep)
 
+
 def _nt_is_enabled(hlm, guid):
     connection_key = winreg.OpenKey(
         hlm,
-        r'SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}'
-        r'\%s\Connection' % guid)
-    (pnp_id, _ttype) = winreg.QueryValueEx(connection_key, 'PnpInstanceID')
-    device_key = winreg.OpenKey(hlm, r'SYSTEM\CurrentControlSet\Enum\%s' % pnp_id)
+        r'SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}\%s\Connection'
+        % guid)
+    pnp_id, _ttype = winreg.QueryValueEx(connection_key, 'PnpInstanceID')
+    device_key = winreg.OpenKey(hlm,
+                                r'SYSTEM\CurrentControlSet\Enum\%s' % pnp_id)
     try:
         flags, _ttype = winreg.QueryValueEx(device_key, 'ConfigFlags')
         return not flags & 0x1
+    except:
+        return False
     finally:
         device_key.Close()
-    connection_key.Close()
-    return False
+        connection_key.Close()
+
 
 def get_nameservers():
     '''
@@ -38,7 +43,8 @@ def get_nameservers():
     '''
     nameservers = []
     hlm = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
-    servers = _nt_read_key(hlm, r'SYSTEM\CurrentControlSet\Services\Tcpip\Parameters')
+    servers = _nt_read_key(
+        hlm, r'SYSTEM\CurrentControlSet\Services\Tcpip\Parameters')
     if servers is not None:
         nameservers.extend(servers)
     interfaces = winreg.OpenKey(

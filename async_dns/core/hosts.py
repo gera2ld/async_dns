@@ -1,4 +1,5 @@
 import os
+
 from .address import Address
 from .record import Record
 
@@ -8,6 +9,7 @@ elif os.name == 'posix':
     hosts_file = '/etc/hosts'
 else:
     hosts_file = None
+
 
 def parse_hosts_file(filename=None):
     if filename is None: filename = hosts_file
@@ -24,4 +26,7 @@ def parse_hosts_file(filename=None):
                 pass
             else:
                 for name in it:
-                    yield Record(name=name, qtype=addr.ip_type, ttl=-1, data=addr.hostinfo.hostname)
+                    yield Record(name=name,
+                                 qtype=addr.ip_type,
+                                 ttl=-1,
+                                 data=addr.hostinfo.hostname)

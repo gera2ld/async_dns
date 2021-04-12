@@ -1,8 +1,9 @@
 import asyncio
 import base64
 import json
-from functools import partial
-from async_dns import DNSMessage, REQUEST, Record, types
+
+from async_dns.core import DNSMessage, REQUEST, Record, types
+
 from .request import send_request
 
 
@@ -75,28 +76,6 @@ class DoHClient:
         assert 200 <= resp.status < 300, f'Request error: {resp.status}'
         data = json.loads(resp.data)
         return data
-
-
-_client = None
-
-
-def set_client(client=None):
-    global _client
-    if client is None:
-        client = DoHClient()
-    _client = client
-
-
-async def request_message(req, addr, timeout=3.0):
-    result = await asyncio.wait_for(_client.request_message(str(addr), req),
-                                    timeout)
-    return result
-
-
-def request(req, addr, timeout=3.0):
-    if _client is None:
-        set_client()
-    return request_message(req, addr, timeout)
 
 
 if __name__ == '__main__':

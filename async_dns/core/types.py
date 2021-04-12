@@ -15,8 +15,10 @@ SRV = 33
 NAPTR = 35
 ANY = 255
 
+
 def _is_type(name):
     return not name.startswith('_') and name.upper() == name
+
 
 _name_mapping = {}
 _code_mapping = {}
@@ -27,6 +29,7 @@ for name, code in list(globals().items()):
         _name_mapping[name.lower()] = code
         _code_mapping[code] = name
 
+
 def get_name(code, default=None):
     '''
     Get type name from code
@@ -35,6 +38,7 @@ def get_name(code, default=None):
     if name is None:
         name = str(code)
     return name
+
 
 def get_code(name, default=None):
     '''
