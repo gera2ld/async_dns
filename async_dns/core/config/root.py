@@ -12,7 +12,7 @@ __all__ = [
     'get_root_servers',
 ]
 
-CONFIG_DIR = os.path.expanduser('~/.config/async_dns')
+CONFIG_DIR = os.environ.get('ASYNC_DNS_CONFIG_DIR', os.path.expanduser('~/.config/async_dns'))
 os.makedirs(CONFIG_DIR, exist_ok=True)
 CACHE_FILE = os.path.join(CONFIG_DIR, 'named.cache.txt')
 
