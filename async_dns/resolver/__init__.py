@@ -111,7 +111,6 @@ class ProxyResolver(Resolver):
     '''
     name = 'AsyncDNSProxyResolver'
     default_nameservers = core_config['default_nameservers']
-    recursive = 0
 
     def __init__(self, *k, proxies=None, **kw):
         super().__init__(*k, **kw)
