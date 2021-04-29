@@ -6,3 +6,5 @@ __pycache__/
 /poetry.lock
 /.tox
 /.vim
+/.coverage
+/htmlcov

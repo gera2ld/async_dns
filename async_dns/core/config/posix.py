@@ -1,6 +1,7 @@
 '''
 This module load nameservers from posix resolv.conf.
 '''
+from pathlib import Path
 
 
 def get_nameservers(filename='/etc/resolv.conf'):
@@ -8,7 +9,7 @@ def get_nameservers(filename='/etc/resolv.conf'):
     Load nameservers from resolv.conf file.
     '''
     nameservers = []
-    for line in open(filename, 'r'):
+    for line in Path(filename).read_text().splitlines():
         if line.startswith('#'):
             continue
         parts = line.split()

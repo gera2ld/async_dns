@@ -4,6 +4,7 @@ Cache module.
 
 import json
 import os
+from pathlib import Path
 
 from .. import Record, logger, types
 
@@ -19,7 +20,8 @@ os.makedirs(CONFIG_DIR, exist_ok=True)
 CACHE_FILE = os.path.join(CONFIG_DIR, 'named.cache.txt')
 
 try:
-    user_config = json.load(open(os.path.join(CONFIG_DIR, 'config.json')))
+    with open(os.path.join(CONFIG_DIR, 'config.json')) as f:
+        user_config = json.load(f)
 except:
     user_config = None
 core_config = {
@@ -50,7 +52,8 @@ def get_name_cache(url='ftp://rs.internic.net/domain/named.cache',
     except:
         logger.warning('Error fetching named.cache')
     else:
-        open(filename, 'wb').write(res.read())
+        with open(filename, 'wb') as f:
+            f.write(res.read())
 
 
 def get_root_servers(filename=CACHE_FILE):
@@ -62,7 +65,7 @@ def get_root_servers(filename=CACHE_FILE):
     # in case failed fetching named.cache
     if not os.path.isfile(filename):
         return
-    for line in open(filename, 'r'):
+    for line in Path(filename).read_text().splitlines():
         if line.startswith(';'):
             continue
         parts = line.lower().split()

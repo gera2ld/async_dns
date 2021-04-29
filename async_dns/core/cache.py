@@ -64,7 +64,12 @@ class CacheNode:
             for t in qtype:
                 yield from self.query(fqdn, t)
 
-    def add(self, fqdn=None, qtype=None, data=None, ttl=-1, record=None):
+    def add(self,
+            fqdn: str = None,
+            qtype: int = None,
+            data=None,
+            ttl=-1,
+            record: Record = None):
         if record is None:
             assert fqdn is not None
             assert qtype is not None
