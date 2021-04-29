@@ -134,6 +134,9 @@ If you need a more powerful DoH client based on [aiohttp](https://docs.aiohttp.o
 
 ``` sh
 $ python3 -m unittest
+
+# Or with tox
+$ tox -e py
 ```
 
 ## References

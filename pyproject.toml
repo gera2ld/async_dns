@@ -16,6 +16,7 @@ jedi = "^0.17.2"
 pylint = "^2.6.0"
 rope = "^0.18.0"
 yapf = "^0.30.0"
+tox = "^3.23.0"
 
 [build-system]
 requires = ["poetry-core"]

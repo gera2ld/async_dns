@@ -91,8 +91,14 @@ class BaseResolver:
         return has_result
 
     def query_cache(self, msg: DNSMessage, fqdn: str, qtype: int):
-        cname = self._add_cache_cname(msg, fqdn)
-        if cname:
+        cnames = set()
+        while True:
+            cname = self._add_cache_cname(msg, fqdn)
+            if not cname: break
+            if cname in cnames:
+                # CNAME cycle detected
+                break
+            cnames.add(cname)
             # RFC1034: If a CNAME RR is present at a node, no other data should be present
             fqdn = cname
         has_result = bool(cname) and qtype in (types.CNAME, types.ANY)
