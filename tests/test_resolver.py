@@ -2,7 +2,8 @@ import unittest
 
 from async_dns.core import types
 from async_dns.resolver import ProxyResolver
-from util import async_test
+
+from .util import async_test
 
 
 class TestResolver(unittest.TestCase):
