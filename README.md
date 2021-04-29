@@ -100,11 +100,11 @@ $ python3 -m async_dns.server -x none
 
 ``` python
 import asyncio
-from async_dns import types
+from async_dns.core import types
 from async_dns.resolver import ProxyResolver
 
 resolver = ProxyResolver()
-res = asyncio.run(resolver.query('www.baidu.com', types.A))
+res, cached = asyncio.run(resolver.query('www.baidu.com', types.A))
 print(res)
 ```
 
@@ -119,10 +119,6 @@ resolver = ProxyResolver(proxies=[
     '8.8.8.8',                                              # equivalent to (None, ['8.8.8.8']), matches all others
 ])
 ```
-
-### Queries
-
-Both `resolver.query(fqdn, qtype=ANY, timeout=3.0, tick=5)` and `resolver.query_safe(fqdn, qtype=ANY, timeout=3.0, tick=5)` do queries for domain names. The only difference is that `query_safe` returns `None` if there is an exception, while `query` always raises the exception.
 
 ## DoH support
 
