@@ -100,12 +100,31 @@ $ python3 -m async_dns.server -x none
 
 ``` python
 import asyncio
-from async_dns import types
+from async_dns.core import types
 from async_dns.resolver import ProxyResolver
 
 resolver = ProxyResolver()
-res = asyncio.run(resolver.query('www.baidu.com', types.A))
+res, cached = asyncio.run(resolver.query('www.baidu.com', types.A))
 print(res)
+```
+
+### Client
+
+The client sends a request to a remote server and returns the message directly. Unlike resolvers, client does not have a cache and does not modify the response.
+
+```python
+import asyncio
+from async_dns.core import types, Address
+from async_dns.resolver import DNSClient
+
+async def query():
+    client = DNSClient()
+    res = await client.query('www.google.com', types.A,
+                             Address.parse('8.8.8.8'))
+    print(res)
+    print(res.aa)
+
+asyncio.run(query())
 ```
 
 ### Routing
@@ -120,10 +139,6 @@ resolver = ProxyResolver(proxies=[
 ])
 ```
 
-### Queries
-
-Both `resolver.query(fqdn, qtype=ANY, timeout=3.0, tick=5)` and `resolver.query_safe(fqdn, qtype=ANY, timeout=3.0, tick=5)` do queries for domain names. The only difference is that `query_safe` returns `None` if there is an exception, while `query` always raises the exception.
-
 ## DoH support
 
 This library contains a simple implementation of DoH (aka DNS over HTTPS) client with partial HTTP protocol implemented.
@@ -134,9 +149,13 @@ If you need a more powerful DoH client based on [aiohttp](https://docs.aiohttp.o
 
 ``` sh
 $ python3 -m unittest
+
+# Or with tox
+$ tox -e py
 ```
 
 ## References
 
+- <https://tools.ietf.org/html/rfc1034>
 - <https://tools.ietf.org/html/rfc1035>
 - <https://tools.ietf.org/html/rfc2915> NAPTR

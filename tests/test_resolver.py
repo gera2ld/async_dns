@@ -1,10 +1,16 @@
-import unittest, asyncio
-from async_dns.resolver import ProxyResolver
+import unittest
+
 from async_dns.core import types
+from async_dns.resolver import ProxyResolver
+from util import async_test
+
 
 class TestResolver(unittest.TestCase):
-    def test_query(self):
-        loop = asyncio.get_event_loop()
+    @async_test
+    async def test_query(self):
         resolver = ProxyResolver()
-        res = loop.run_until_complete(resolver.query('www.baidu.com', types.A))
+        res, cache1 = await resolver.query('www.baidu.com', types.A)
+        _, cache2 = await resolver.query('www.baidu.com', types.A)
         self.assertTrue(res.an)
+        self.assertFalse(cache1)
+        self.assertTrue(cache2)

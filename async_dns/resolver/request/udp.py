@@ -3,14 +3,14 @@ Request using UDP protocol.
 '''
 import asyncio
 import socket
-from async_dns.core import DNSMessage
-from .. import types, RandId
+
+from async_dns.core import Address, DNSMessage, REQUEST, RandId, Record, types
+
 
 class CallbackProtocol(asyncio.DatagramProtocol):
     '''
     Protocol class for asyncio connection callback.
     '''
-
     def __init__(self):
         super().__init__()
         self.transport = None
@@ -33,14 +33,17 @@ class CallbackProtocol(asyncio.DatagramProtocol):
         loop = asyncio.get_event_loop()
         future = loop.create_future()
         self.futures[qid] = future
-        def clear(fut=None):
+
+        def clear(_=None):
             if not future.done():
                 future.cancel()
             self.futures.pop(qid, None)
+
         future.add_done_callback(clear)
         loop.call_later(timeout, clear)
         self.transport.sendto(data, addr)
         return future
+
 
 class Dispatcher:
     data = {}
@@ -59,14 +62,15 @@ class Dispatcher:
         self.initialized = loop.create_future()
         family = socket.AF_INET6 if self.ip_type is types.AAAA else socket.AF_INET
         _transport, self.protocol = await loop.create_datagram_endpoint(
-                CallbackProtocol, family=family, local_addr=self.local_addr)
+            CallbackProtocol, family=family, local_addr=self.local_addr)
         self.initialized.set_result(None)
 
     async def send(self, req, addr, timeout):
         qid = self.rand_id.get()
         req.qid = qid
         try:
-            return await self.protocol.write_data(req.pack(), addr.to_addr(), timeout)
+            return await self.protocol.write_data(req.pack(), addr.to_addr(),
+                                                  timeout)
         finally:
             self.rand_id.put(qid)
 
@@ -79,6 +83,7 @@ class Dispatcher:
         await dispatcher.initialize()
         return dispatcher
 
+
 async def request(req, addr, timeout=3.0):
     '''
     Send raw data through UDP.
@@ -87,3 +92,14 @@ async def request(req, addr, timeout=3.0):
     data = await dispatcher.send(req, addr, timeout)
     result = DNSMessage.parse(data)
     return result
+
+
+if __name__ == '__main__':
+
+    async def main():
+        req = DNSMessage(qr=REQUEST)
+        req.qd = [Record(REQUEST, 'www.google.com', types.A)]
+        result = await request(req, Address.parse('udp://114.114.114.114'))
+        print('query_udp:', result)
+
+    asyncio.run(main())

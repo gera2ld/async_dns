@@ -2,29 +2,33 @@
 Async DNS server
 '''
 import asyncio
-import io
 import struct
-from async_dns.core import *
-from async_dns.core.cache import CacheNode
-from async_dns.resolver import ProxyResolver, Resolver
+
+from async_dns.core import CacheNode, DNSMessage, logger, parse_hosts_file, types
+from async_dns.resolver import BaseResolver, ProxyResolver, RecursiveResolver
+
 from .serve import *
 
-async def handle_dns(resolver, data, addr, protocol):
+
+async def handle_dns(resolver: BaseResolver, data, addr, protocol):
     '''Handle DNS requests'''
 
     msg = DNSMessage.parse(data)
     for question in msg.qd:
         try:
             error = None
-            res, cached = await resolver.query_with_timeout(question.name, question.qtype)
+            res, cached = await resolver.query(question.name, question.qtype)
         except Exception as e:
             import traceback
-            logger.debug('[server_handle][%s][%s] %s', types.get_name(question.qtype), question.name, traceback.format_exc())
+            logger.debug('[server_handle][%s][%s] %s',
+                         types.get_name(question.qtype), question.name,
+                         traceback.format_exc())
             error = str(e)
             res, cached = None, None
         if res is not None:
             res.qid = msg.qid
-            data = res.pack(size_limit=512 if protocol == 'udp' else None) # rfc2181
+            data = res.pack(
+                size_limit=512 if protocol == 'udp' else None)  # rfc2181
             len_data = len(data)
             yield data
             res_code = res.r
@@ -42,10 +46,11 @@ async def handle_dns(resolver, data, addr, protocol):
             len_data,
             error or '',
         )
-        break   # only one question is supported
+        break  # only one question is supported
+
 
 class TCPHandler:
-    def __init__(self, resolver):
+    def __init__(self, resolver: BaseResolver):
         self.resolver = resolver
 
     async def handle_tcp(self, reader, writer):
@@ -61,9 +66,9 @@ class TCPHandler:
                 writer.write(bsize)
                 writer.write(result)
 
+
 class DNSDatagramProtocol(asyncio.DatagramProtocol):
     '''DNS server handler through UDP protocol.'''
-
     def __init__(self, resolver):
         super().__init__()
         self.resolver = resolver
@@ -78,20 +83,25 @@ class DNSDatagramProtocol(asyncio.DatagramProtocol):
         async for result in handle_dns(self.resolver, data, addr, 'udp'):
             self.transport.sendto(result, addr)
 
-async def start_dns_server(
-    bind=':53', enable_tcp=True, enable_udp=True,
-    hosts=None, proxies=None):
+
+async def start_dns_server(bind=':53',
+                           enable_tcp=True,
+                           enable_udp=True,
+                           hosts=None,
+                           proxies=None):
     '''Start a DNS server.'''
 
     cache = CacheNode()
-    cache.add('1.0.0.127.in-addr.arpa', qtype=types.PTR, data='async-dns.local')
+    cache.add('1.0.0.127.in-addr.arpa',
+              qtype=types.PTR,
+              data='async-dns.local')
     cache.add('localhost', qtype=types.A, data='127.0.0.1')
     if hosts != 'none':
         for rec in parse_hosts_file(None if hosts == 'local' else hosts):
             cache.add(record=rec)
     if proxies is None:
         # recursive resolver
-        resolver = Resolver(cache)
+        resolver = RecursiveResolver(cache)
     else:
         # proxy resolver
         # if proxy is falsy, default proxies will be used
@@ -105,11 +115,12 @@ async def start_dns_server(
     else:
         server = None
     if enable_udp:
-        hostname = host.hostname or '::' # '::' includes both IPv4 and IPv6
+        hostname = host.hostname or '::'  # '::' includes both IPv4 and IPv6
         transport, _protocol = await loop.create_datagram_endpoint(
             lambda: DNSDatagramProtocol(resolver),
-            local_addr=(hostname, host.port))
-        urls.append(get_url_items([transport.get_extra_info('sockname')], 'udp:'))
+            local_addr=(hostname, host.port or 53))
+        urls.append(
+            get_url_items([transport.get_extra_info('sockname')], 'udp:'))
     else:
         transport = None
     for line in repr_urls(urls):

@@ -1,5 +1,7 @@
 import unittest
+
 from async_dns.core import rand
+
 
 class TestRand(unittest.TestCase):
     def test_rand(self):

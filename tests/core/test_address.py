@@ -1,5 +1,7 @@
 import unittest
+
 from async_dns.core import Address, types
+
 
 class TestAddress(unittest.TestCase):
     def test_defaults(self):

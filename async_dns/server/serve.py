@@ -1,7 +1,9 @@
+import asyncio
 import os
 import socket
-import asyncio
+
 from async_dns.core import Host
+
 
 class UrlItem:
     TYPE_LOCAL = 'local', 'Local:'
@@ -14,9 +16,10 @@ class UrlItem:
     def to_str(self):
         return f'{self.type[1]}\t{self.data}'
 
+
 def get_host_ip(target=('8.8.8.8', 53)):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(target)
         ip = s.getsockname()[0]
         # no real request is send
@@ -24,9 +27,11 @@ def get_host_ip(target=('8.8.8.8', 53)):
         s.close()
     return ip
 
+
 def is_path(path):
     if not isinstance(path, str): return False
     return path.startswith('/') or path.startswith('file://')
+
 
 async def start_server(handle, hostinfo):
     if is_path(hostinfo):
@@ -38,7 +43,10 @@ async def start_server(handle, hostinfo):
         os.chmod(hostinfo, 0o666)
         return server
     host = Host(hostinfo)
-    return await asyncio.start_server(handle, host=host.hostname, port=host.port)
+    return await asyncio.start_server(handle,
+                                      host=host.hostname,
+                                      port=host.port)
+
 
 def get_url_pairs(hosts, scheme):
     for host in hosts:
@@ -47,15 +55,18 @@ def get_url_pairs(hosts, scheme):
             yield host, None
         else:
             hostname, port = host[:2]
+
             def add_port(hostname):
                 if hostname is None: return
                 return f'{scheme}//{hostname}:{port}'
+
             if hostname == '0.0.0.0':
                 yield add_port('localhost'), add_port(get_host_ip())
             elif hostname == '::':
                 yield add_port('[::1]'), None
             else:
                 yield None, add_port(hostname)
+
 
 def get_url_items(hosts, scheme='http:'):
     for local, remote in get_url_pairs(hosts, scheme):
@@ -66,16 +77,22 @@ def get_url_items(hosts, scheme='http:'):
             items.append(UrlItem(type=UrlItem.TYPE_REMOTE, data=remote))
         yield items
 
+
 def get_server_hosts(servers, scheme):
     for server in servers:
-        yield get_url_items([sock.getsockname() for sock in server.sockets], scheme)
+        yield get_url_items([sock.getsockname() for sock in server.sockets],
+                            scheme)
+
 
 def wake_up():
     if os.name == 'nt':
         loop = asyncio.get_event_loop()
+
         def wake_up_later():
             loop.call_later(.1, wake_up_later)
+
         wake_up_later()
+
 
 def run_forever(aw=None):
     wake_up()
@@ -83,6 +100,7 @@ def run_forever(aw=None):
     if aw is not None:
         loop.run_until_complete(aw)
     loop.run_forever()
+
 
 def repr_urls(hosts):
     yield '===================='

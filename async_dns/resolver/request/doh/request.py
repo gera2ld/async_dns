@@ -1,5 +1,7 @@
 import urllib.parse
-from async_dns import types
+
+from async_dns.core import types
+
 from ..util import ConnectionHandle
 
 
@@ -62,11 +64,13 @@ async def send_request(url,
         writer = conn.writer
         writer.write(f'{method} {path} HTTP/1.1\r\n'.encode())
         merged_headers = {
-            'Host': res.hostname,
+            'host': res.hostname,
         }
-        if headers: merged_headers.update(headers)
+        if headers:
+            for key, value in headers.items():
+                merged_headers[key.lower()] = value
         if data:
-            merged_headers['Content-Length'] = len(data)
+            merged_headers['content-length'] = str(len(data))
         for key, value in merged_headers.items():
             writer.write(f'{key}: {value}\r\n'.encode())
         writer.write(b'\r\n')

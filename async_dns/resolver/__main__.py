@@ -3,21 +3,28 @@ Script to resolve hostnames.
 '''
 import argparse
 import asyncio
-from async_dns.core import *
-from . import ProxyResolver
+from typing import Tuple
+
+from async_dns.core import Address, DNSMessage, REQUEST, Record, logger, types
+
+from .proxy_resolver import BaseResolver, ProxyResolver
+
 
 def _parse_args():
-    parser = argparse.ArgumentParser(
-        prog='python3 -m async_dns.resolver',
-        description='Async DNS resolver')
+    parser = argparse.ArgumentParser(prog='python3 -m async_dns.resolver',
+                                     description='Async DNS resolver')
     parser.add_argument('hostnames', nargs='+', help='the hostnames to query')
     parser.add_argument('-n', '--nameservers', nargs='+', help='name servers')
-    parser.add_argument(
-        '-t', '--types', nargs='+', default=['any'],
-        help='query types, default as `any`')
+    parser.add_argument('-t',
+                        '--types',
+                        nargs='+',
+                        default=['any'],
+                        help='query types, default as `any`')
     return parser.parse_args()
 
-async def resolve_hostname(resolver, hostname, qtype):
+
+async def resolve_hostname(resolver: BaseResolver, hostname,
+                           qtype) -> Tuple[DNSMessage, bool]:
     '''Resolve a hostname with the given resolver.'''
     addr = Address.parse(hostname, allow_domain=True)
     if addr.ip_type is None:
@@ -26,7 +33,8 @@ async def resolve_hostname(resolver, hostname, qtype):
         res = DNSMessage()
         res.qd.append(Record(REQUEST, name=hostname, qtype=addr.ip_type))
         res.an.append(Record(qtype=addr.ip_type, data=hostname))
-        return res
+        return res, True
+
 
 async def resolve_hostnames(args):
     '''Resolve hostnames passed from process arguments.'''
@@ -40,10 +48,12 @@ async def resolve_hostnames(args):
             if qtype is None:
                 logger.warn('Unknown type: %s', qtype_name)
                 continue
-            results.append(asyncio.ensure_future(resolve_hostname(resolver, hostname, qtype)))
+            results.append(
+                asyncio.ensure_future(
+                    resolve_hostname(resolver, hostname, qtype)))
     done, _ = await asyncio.wait(results, timeout=3)
     for fut in done:
-        res = fut.result()
+        res, _ = fut.result()
         hostname = res.qd[0].name
         for item in res.an:
             print('%s [%s] %s' % (
@@ -51,6 +61,7 @@ async def resolve_hostnames(args):
                 types.get_name(item.qtype),
                 item.data,
             ))
+
 
 # asyncio.run is added in 3.7
 loop = asyncio.get_event_loop()
