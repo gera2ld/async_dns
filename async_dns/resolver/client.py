@@ -57,8 +57,8 @@ if __name__ == '__main__':
 
     async def main():
         client = DNSClient()
-        res = await client.query('www.baidu.com', types.A,
-                                 Address.parse('tcp://114.114.114.114'))
+        res = await client.query('www.google.com', types.A,
+                                 Address.parse('ns1.google.com', allow_domain=True))
         from .request import clean
         clean()
         print(res)

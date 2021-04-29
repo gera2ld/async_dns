@@ -153,5 +153,7 @@ class Address:
             hostinfo.port = cls.default_ports.get(data.scheme, 53)
         addr = Address(hostinfo, data.scheme, data.path)
         if not allow_domain and addr.ip_type is None:
-            raise InvalidHost(hostinfo.hostname)
+            raise InvalidHost(
+                hostinfo.hostname,
+                'You may pass `allow_domain=True` to allow domain names.')
         return addr
