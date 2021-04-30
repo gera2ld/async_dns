@@ -1,8 +1,7 @@
 import asyncio
 
 from async_dns.core import Address, DNSMessage, REQUEST, Record, logger, types
-
-from .request import doh, tcp, udp
+from async_dns.request import doh, tcp, udp
 
 
 class DNSClient:
@@ -57,9 +56,10 @@ if __name__ == '__main__':
 
     async def main():
         client = DNSClient()
-        res = await client.query('www.google.com', types.A,
-                                 Address.parse('ns1.google.com', allow_domain=True))
-        from .request import clean
+        res = await client.query(
+            'www.google.com', types.A,
+            Address.parse('ns1.google.com', allow_domain=True))
+        from async_dns.request import clean
         clean()
         print(res)
 

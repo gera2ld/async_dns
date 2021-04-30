@@ -1,8 +1,12 @@
+from typing import TYPE_CHECKING
 import urllib.parse
 
 from async_dns.core import types
 
 from ..util import ConnectionHandle
+
+if TYPE_CHECKING:
+    from async_dns.resolver import BaseResolver
 
 
 class Response:
@@ -41,7 +45,7 @@ async def send_request(url,
                        params=None,
                        data=None,
                        headers=None,
-                       resolver=None):
+                       resolver: 'BaseResolver' = None):
     if '://' not in url:
         url = 'http://' + url
     if params:
@@ -55,8 +59,9 @@ async def send_request(url,
     if res.query: path += '?' + res.query
     ssl = res.scheme == 'https'
     host = res.hostname
+    assert host, 'Invalid host'
     if resolver is not None:
-        msg = await resolver.query(host)
+        msg, _ = await resolver.query(host)
         host = msg.get_record((types.A, types.AAAA))
         assert host, 'DNS lookup failed'
     async with ConnectionHandle(host, res.port, ssl, res.hostname) as conn:
