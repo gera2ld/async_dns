@@ -2,6 +2,7 @@ import io
 import socket
 import struct
 import time
+from typing import Dict, Iterable, Tuple, Type, TypeVar, Union
 
 from . import types
 from .util import get_bits, load_domain_name, load_string, pack_domain_name, pack_string
@@ -28,27 +29,85 @@ class DNSError(Exception):
         5: 'Refused: policy reasons'
     }
 
-    def __init__(self, code, message=None):
+    def __init__(self, code: int, message: str = None):
         message = self.errors.get(code,
                                   message) or 'Unknown reply code: %d' % code
         super().__init__(message)
         self.code = code
 
 
+rdata_map = {}
+
+
+def rdata(cls):
+    rdata_map[cls.rtype] = cls
+    return cls
+
+
 class RData:
     '''Base class of RData'''
     rtype = -1
+    data = None
+
+    def __hash__(self):
+        return hash(self.data)
+
+    def __repr__(self):
+        return '<%s: %s>' % (self.type_name, self.data)
 
     @property
     def type_name(self):
         return types.get_name(self.rtype).lower()
 
+    @classmethod
+    def load(cls, data: bytes, l: int, size: int):
+        raise NotImplementedError
 
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
+        raise NotImplementedError
+
+
+@rdata
+class A_RData(RData):
+    '''A record'''
+    rtype = types.A
+
+    def __init__(self, data: str):
+        self.data = data
+
+    @classmethod
+    def load(cls, data: bytes, l: int, size: int):
+        ip = socket.inet_ntoa(data[l:l + size])
+        return l + size, cls(ip)
+
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
+        yield socket.inet_aton(self.data)
+
+
+@rdata
+class AAAA_RData(RData):
+    '''AAAA record'''
+    rtype = types.AAAA
+
+    def __init__(self, data: str):
+        self.data = data
+
+    @classmethod
+    def load(cls, data: bytes, l: int, size: int):
+        ip = socket.inet_ntop(socket.AF_INET6, data[l:l + size])
+        return l + size, cls(ip)
+
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
+        yield socket.inet_pton(socket.AF_INET6, self.data)
+
+
+@rdata
 class SOA_RData(RData):
     '''Start of Authority record'''
     rtype = types.SOA
 
     def __init__(self, *k):
+        self.data = k
         (
             self.mname,
             self.rname,
@@ -63,7 +122,7 @@ class SOA_RData(RData):
         return '<%s: %s>' % (self.type_name, self.rname)
 
     @classmethod
-    def load(cls, data, l):
+    def load(cls, data: bytes, l: int, size: int) -> Tuple[int, 'SOA_RData']:
         i, mname = load_domain_name(data, l)
         i, rname = load_domain_name(data, i)
         (
@@ -76,42 +135,46 @@ class SOA_RData(RData):
         return i + 20, cls(mname, rname, serial, refresh, retry, expire,
                            minimum)
 
-    def dump(self, pack_name, offset):
-        mname = pack_name(self.mname, offset + 2)
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
+        mname = pack_domain_name(self.mname, names, offset + 2)
         yield mname
-        yield pack_name(self.rname, offset + 2 + len(mname))
+        yield pack_domain_name(self.rname, names, offset + 2 + len(mname))
         yield struct.pack('!LLLLL', self.serial, self.refresh, self.retry,
                           self.expire, self.minimum)
 
 
+@rdata
 class MX_RData(RData):
     '''Mail exchanger record'''
 
     rtype = types.MX
 
     def __init__(self, *k):
+        self.data = k
         self.preference, self.exchange = k
 
     def __repr__(self):
         return '<%s-%s: %s>' % (self.type_name, self.preference, self.exchange)
 
     @classmethod
-    def load(cls, data, l):
+    def load(cls, data: bytes, l: int, size: int) -> Tuple[int, 'MX_RData']:
         preference, = struct.unpack('!H', data[l:l + 2])
         i, exchange = load_domain_name(data, l + 2)
         return i, cls(preference, exchange)
 
-    def dump(self, pack_name, offset):
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
         yield struct.pack('!H', self.preference)
-        yield pack_name(self.exchange, offset + 4)
+        yield pack_domain_name(self.exchange, names, offset + 4)
 
 
+@rdata
 class SRV_RData(RData):
     '''Service record'''
 
     rtype = types.SRV
 
     def __init__(self, *k):
+        self.data = k
         self.priority, self.weight, self.port, self.hostname = k
 
     def __repr__(self):
@@ -119,22 +182,24 @@ class SRV_RData(RData):
                                    self.hostname, self.port)
 
     @classmethod
-    def load(cls, data, l):
+    def load(cls, data: bytes, l: int, size: int) -> Tuple[int, 'SRV_RData']:
         priority, weight, port = struct.unpack('!HHH', data[l:l + 6])
         i, hostname = load_domain_name(data, l + 6)
         return i, cls(priority, weight, port, hostname)
 
-    def dump(self, pack_name, offset):
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
         yield struct.pack('!HHH', self.priority, self.weight, self.port)
-        yield pack_name(self.hostname, offset + 8)
+        yield pack_domain_name(self.hostname, names, offset + 8)
 
 
+@rdata
 class NAPTR_RData(RData):
     '''NAPTR record'''
 
     rtype = types.NAPTR
 
     def __init__(self, *k):
+        self.data = k
         self.order, self.preference, self.flags, self.service, self.regexp, self.replacement = k
 
     def __repr__(self):
@@ -143,7 +208,7 @@ class NAPTR_RData(RData):
             self.service, self.regexp, self.replacement)
 
     @classmethod
-    def load(cls, data, l):
+    def load(cls, data: bytes, l: int, size: int) -> Tuple[int, 'NAPTR_RData']:
         pos = l
         order, preference = struct.unpack('!HH', data[pos:pos + 4])
         pos += 4
@@ -162,18 +227,87 @@ class NAPTR_RData(RData):
         i, replacement = load_domain_name(data, pos)
         return i, cls(order, preference, flags, service, regexp, replacement)
 
-    def dump(self, pack_name, offset):
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
         raise NotImplementedError
+
+
+class Domain_RData(RData):
+    '''Domain record'''
+    def __init__(self, data: str):
+        self.data = data
+
+    @classmethod
+    def load(cls, data: bytes, l: int,
+             size: int) -> Tuple[int, 'Domain_RData']:
+        l, domain = load_domain_name(data, l)
+        return l, cls(domain)
+
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
+        yield pack_domain_name(self.data, names, offset + 2)
+
+
+@rdata
+class CNAME_RData(Domain_RData):
+    '''CNAME record'''
+    rtype = types.CNAME
+
+
+@rdata
+class NS_RData(Domain_RData):
+    '''NS record'''
+
+    rtype = types.NS
+
+
+@rdata
+class PTR_RData(Domain_RData):
+    '''PTR record'''
+
+    rtype = types.PTR
+
+
+@rdata
+class TXT_RData(RData):
+    '''TXT record'''
+
+    rtype = types.TXT
+
+    def __init__(self, data: str):
+        self.data = data
+
+    @classmethod
+    def load(cls, data: bytes, l: int, size: int) -> Tuple[int, 'TXT_RData']:
+        _, text = load_string(data, l)
+        return l + size, cls(text.decode())
+
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
+        yield pack_string(self.data)
+
+
+class Unsupported_RData(RData):
+    '''Unsupported RData'''
+    def __init__(self, rtype: int, raw: bytes):
+        self.data = rtype, raw
+        self.rtype = rtype
+        self.raw = raw
+
+    @classmethod
+    def load(cls, data: bytes, l: int, size: int,
+             qtype: int) -> Tuple[int, 'Unsupported_RData']:
+        return l + size, cls(qtype, data[l:l + size])
+
+    def dump(self, names: Dict[str, int], offset: int) -> Iterable[bytes]:
+        yield self.raw
 
 
 class Record:
     def __init__(self,
-                 q=RESPONSE,
-                 name='',
-                 qtype=types.ANY,
-                 qclass=1,
-                 ttl=0,
-                 data=None):
+                 q: int = RESPONSE,
+                 name: str = '',
+                 qtype: int = types.ANY,
+                 qclass: int = 1,
+                 ttl: int = 0,
+                 data: RData = None):
         self.q = q
         self.name = name
         self.qtype = qtype
@@ -197,7 +331,7 @@ class Record:
                       ttl=kw.get('ttl', self.ttl),
                       data=kw.get('data', self.data))
 
-    def parse(self, data, l):
+    def parse(self, data: bytes, l: int):
         l, self.name = load_domain_name(data, l)
         self.qtype, self.qclass = struct.unpack('!HH', data[l:l + 4])
         l += 4
@@ -205,31 +339,15 @@ class Record:
             self.timestamp = int(time.time())
             self.ttl, dl = struct.unpack('!LH', data[l:l + 6])
             l += 6
-            if self.qtype == types.A:
-                self.data = socket.inet_ntoa(data[l:l + dl])
-            elif self.qtype == types.AAAA:
-                self.data = socket.inet_ntop(socket.AF_INET6, data[l:l + dl])
-            elif self.qtype == types.MX:
-                _, self.data = MX_RData.load(data, l)
-            elif self.qtype == types.SRV:
-                _, self.data = SRV_RData.load(data, l)
-            elif self.qtype == types.NAPTR:
-                _, self.data = NAPTR_RData.load(data, l)
-            elif self.qtype == types.SOA:
-                _, self.data = SOA_RData.load(data, l)
-            elif self.qtype in (types.CNAME, types.NS, types.PTR):
-                _, self.data = load_domain_name(data, l)
-            elif self.qtype in (types.TXT, ):
-                _, self.data = load_string(data, l)
+            rcls = rdata_map.get(self.qtype)
+            if rcls is None:
+                _, self.data = Unsupported_RData.load(data, l, dl, self.qtype)
             else:
-                self.data = data[l:l + dl]
+                _, self.data = rcls.load(data, l, dl)
             l += dl
         return l
 
     def pack(self, names, offset=0):
-        def pack_name(name, pack_offset):
-            return pack_domain_name(name, names, pack_offset)
-
         buf = io.BytesIO()
         buf.write(pack_domain_name(self.name, names, offset))
         buf.write(struct.pack('!HH', self.qtype, self.qclass))
@@ -244,21 +362,8 @@ class Record:
                 self.timestamp = now
                 ttl = self.ttl
             buf.write(struct.pack('!L', ttl))
-            if isinstance(self.data, RData):
-                data_str = b''.join(
-                    self.data.dump(pack_name, offset + buf.tell()))
-                buf.write(pack_string(data_str, '!H'))
-            elif self.qtype == types.A:
-                buf.write(pack_string(socket.inet_aton(self.data), '!H'))
-            elif self.qtype == types.AAAA:
-                buf.write(
-                    pack_string(socket.inet_pton(socket.AF_INET6, self.data),
-                                '!H'))
-            elif self.qtype in (types.CNAME, types.NS, types.PTR):
-                name = pack_name(self.data, offset + buf.tell() + 2)
-                buf.write(pack_string(name, '!H'))
-            else:
-                buf.write(pack_string(self.data))
+            data_str = b''.join(self.data.dump(names, offset + buf.tell()))
+            buf.write(pack_string(data_str, '!H'))
         return buf.getvalue()
 
 
@@ -290,9 +395,9 @@ class DNSMessage:
         return '<DNSMessage type=%s qid=%d r=%d QD=%s AN=%s NS=%s AR=%s>' % (
             self.qr, self.qid, self.r, self.qd, self.an, self.ns, self.ar)
 
-    def pack(self, size_limit=None):
+    def pack(self, size_limit: int = None):
         z = 0
-        names = {}
+        names: Dict[str, int] = {}
         buf = io.BytesIO()
         buf.seek(12)
         tc = 0
@@ -315,16 +420,16 @@ class DNSMessage:
         return buf.getvalue()
 
     @staticmethod
-    def parse_entry(qr, data, l, n):
+    def parse_entry(qr: int, data: bytes, l: int, n: int):
         res = []
-        for i in range(n):
+        for _ in range(n):
             r = Record(qr)
             l = r.parse(data, l)
             res.append(r)
         return l, res
 
     @classmethod
-    def parse(cls, data, qid=None):
+    def parse(cls, data: bytes, qid: bytes = None):
         rqid, x, qd, an, ns, ar = struct.unpack('!HHHHHH', data[:12])
         if qid is not None and qid != rqid:
             raise DNSError(-1, 'Transaction ID mismatch')
@@ -343,7 +448,7 @@ class DNSMessage:
         l, ans.ar = ans.parse_entry(RESPONSE, data, l, ar)
         return ans
 
-    def get_record(self, qtypes):
+    def get_record(self, qtypes: Union[str, Iterable[str]]):
         '''Get the first record of qtype defined in `qtypes` in answer list.
         '''
         if isinstance(qtypes, str):

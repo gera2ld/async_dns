@@ -2,8 +2,9 @@
 Utility methods for parsing and packing DNS record data.
 '''
 
-import struct
 import io
+import struct
+from typing import Union
 
 
 class ParseError(Exception):
@@ -21,7 +22,7 @@ class ParseError(Exception):
     data={self.data}>'''
 
 
-def load_domain_name(buffer, offset):
+def load_domain_name(buffer: bytes, offset: int):
     '''Load a domain name from packed data'''
     parts = []
     cursor = None
@@ -50,7 +51,7 @@ def load_domain_name(buffer, offset):
     return cursor, data
 
 
-def load_string(buffer, offset):
+def load_string(buffer: bytes, offset: int):
     '''Load a character string from packed data.'''
     length = buffer[offset]
     offset += 1
@@ -58,7 +59,7 @@ def load_string(buffer, offset):
     return offset + length, data
 
 
-def pack_string(string, btype='B'):
+def pack_string(string: Union[str, bytes], btype='B') -> bytes:
     '''Pack string into `{length}{data}` format.'''
     if not isinstance(string, bytes):
         string = string.encode()
@@ -66,7 +67,7 @@ def pack_string(string, btype='B'):
     return struct.pack('%s%ds' % (btype, length), length, string)
 
 
-def get_bits(num, bit_len):
+def get_bits(num: int, bit_len: int):
     '''Get lower and higher bits breaking at bit_len from num.'''
     high = num >> bit_len
     low = num - (high << bit_len)

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Tuple
+from typing import Tuple, Union
 
 from async_dns.core import (
     Address,
@@ -10,6 +10,7 @@ from async_dns.core import (
     InvalidIP,
     types,
 )
+from async_dns.core.record import CNAME_RData, NS_RData
 
 from .client import DNSClient
 
@@ -21,11 +22,12 @@ class BaseResolver:
     zone_domains = []
     nameserver_types = [types.A]
 
-    def __init__(self, cache=None, query_timeout=3.0, request_timeout=5.0):
+    def __init__(self,
+                 cache: CacheNode = None,
+                 query_timeout: float = 3.0,
+                 request_timeout: float = 5.0):
         self._queries = {}
-        if cache is None:
-            cache = CacheNode()
-        self.cache = cache
+        self.cache = cache or CacheNode()
         self.request_timeout = request_timeout
         self.query_timeout = query_timeout
         self.client = DNSClient(request_timeout)
@@ -65,12 +67,13 @@ class BaseResolver:
         self.cache_message(result)
         return result
 
-    def _add_cache_cname(self, msg: DNSMessage, fqdn: str):
+    def _add_cache_cname(self, msg: DNSMessage, fqdn: str) -> Union[str, None]:
         '''Query cache for CNAME records and add to result msg.
         '''
         for cname in self.cache.query(fqdn, types.CNAME):
             msg.an.append(cname.copy(name=fqdn))
-            return cname.data
+            if isinstance(cname.data, CNAME_RData):
+                return cname.data.data
 
     def _add_cache_qtype(self, msg: DNSMessage, fqdn: str, qtype: int) -> bool:
         '''Query cache for records other than CNAME and add to result msg.
@@ -79,8 +82,8 @@ class BaseResolver:
             return False
         has_result = False
         for rec in self.cache.query(fqdn, qtype):
-            if rec.qtype in (types.NS, ):
-                a_res = list(self.cache.query(rec.data, A_TYPES))
+            if isinstance(rec.data, NS_RData):
+                a_res = list(self.cache.query(rec.data.data, A_TYPES))
                 if a_res:
                     msg.ar.extend(a_res)
                     msg.ns.append(rec)

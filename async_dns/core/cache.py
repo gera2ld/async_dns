@@ -1,4 +1,7 @@
 import time
+from typing import Dict, Iterable, Union
+
+from async_dns.core.record import RData
 
 from . import Record, types
 
@@ -7,12 +10,12 @@ __all__ = ['CacheNode']
 
 class CacheValue:
     def __init__(self):
-        self.data = {}
+        self.data: Dict[int, Dict[RData, Record]] = {}
 
-    def check_ttl(self, record):
+    def check_ttl(self, record: Record):
         return record.ttl < 0 or record.timestamp + record.ttl >= time.time()
 
-    def get(self, qtype):
+    def get(self, qtype: int) -> Iterable[Record]:
         if qtype == types.ANY:
             for qt in self.data.keys():
                 yield from self.get(qt)
@@ -27,7 +30,7 @@ class CacheValue:
                 else:
                     results.pop(key, None)
 
-    def add(self, record):
+    def add(self, record: Record):
         if self.check_ttl(record):
             results = self.data.setdefault(record.qtype, {})
             results[record.data] = record
@@ -35,15 +38,12 @@ class CacheValue:
 
 class CacheNode:
     def __init__(self):
-        self.children = {}
+        self.children: Dict[str, CacheNode] = {}
         self.data = CacheValue()
 
-    def get(self, fqdn, touch=False):
+    def get(self, fqdn: str, touch: bool = False):
         current = self
-        if isinstance(fqdn, str):
-            keys = reversed(fqdn.split('.'))
-        else:
-            keys = fqdn
+        keys = reversed(fqdn.split('.'))
         for key in keys:
             child = current.children.get(key)
             if child is None:
@@ -55,7 +55,7 @@ class CacheNode:
             current = child
         return current.data
 
-    def query(self, fqdn, qtype):
+    def query(self, fqdn: str, qtype: Union[int, Iterable[int]]):
         if isinstance(qtype, int):
             value = self.get(fqdn)
             if value is not None:
@@ -77,3 +77,9 @@ class CacheNode:
             record = Record(name=fqdn, data=data, qtype=qtype, ttl=ttl)
         value = self.get(record.name, True)
         value.add(record)
+
+    def iter_values(self) -> Iterable[Record]:
+        '''Yield all cached values in this node and its subtree.'''
+        yield from self.data.get(types.ANY)
+        for child in self.children.values():
+            yield from child.iter_values()

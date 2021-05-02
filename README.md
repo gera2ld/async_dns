@@ -158,4 +158,5 @@ $ tox -e py
 
 - <https://tools.ietf.org/html/rfc1034>
 - <https://tools.ietf.org/html/rfc1035>
+- <https://tools.ietf.org/html/rfc1464> TXT
 - <https://tools.ietf.org/html/rfc2915> NAPTR
