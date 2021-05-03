@@ -2,6 +2,8 @@
 This module starts a DNS server according to console arguments.
 '''
 import argparse
+import logging
+import os
 
 from . import run_forever, start_dns_server
 from ..core import logger
@@ -30,6 +32,7 @@ def main():
         'the proxy DNS servers, `none` to serve as a recursive server, `default` to proxy to default nameservers'
     )
     args = parser.parse_args()
+    logging.basicConfig(level=os.environ.get('LOGLEVEL', logging.INFO))
     logger.info('DNS server v2 - by Gerald')
     run_forever(
         start_dns_server(bind=args.bind, hosts=args.hosts, proxies=args.proxy))
