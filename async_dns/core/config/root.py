@@ -6,7 +6,9 @@ import json
 import os
 from pathlib import Path
 
-from .. import Record, logger, types
+from .. import types
+from ..record import Record
+from ..util import logger
 
 __all__ = [
     'core_config',

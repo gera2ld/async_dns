@@ -3,7 +3,8 @@ from typing import Dict, Iterable, Union
 
 from async_dns.core.record import RData
 
-from . import Record, types
+from . import types
+from .record import Record
 
 __all__ = ['CacheNode']
 

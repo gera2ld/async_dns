@@ -154,6 +154,27 @@ $ python3 -m unittest
 $ tox -e py
 ```
 
+## Logging
+
+Logging does not work out of the box in v2. It requires at least minimal `logging` configuration.
+
+```py
+logging.basicConfig(level=logging.INFO)
+```
+
+You can also add a formatter for the logger:
+
+```py
+import logging
+from async_dns.core import logger
+
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+fmt = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+handler.setFormatter(fmt)
+logger.addHandler(handler)
+```
+
 ## References
 
 - <https://tools.ietf.org/html/rfc1034>

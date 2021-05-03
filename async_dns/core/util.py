@@ -3,8 +3,11 @@ Utility methods for parsing and packing DNS record data.
 '''
 
 import io
+import logging
 import struct
 from typing import Union
+
+logger = logging.getLogger(__package__)
 
 
 class ParseError(Exception):

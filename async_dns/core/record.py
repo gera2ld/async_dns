@@ -2,7 +2,7 @@ import io
 import socket
 import struct
 import time
-from typing import Dict, Iterable, Tuple, Type, TypeVar, Union
+from typing import Dict, Iterable, Tuple, Union
 
 from . import types
 from .util import get_bits, load_domain_name, load_string, pack_domain_name, pack_string
