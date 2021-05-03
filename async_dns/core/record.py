@@ -13,6 +13,9 @@ __all__ = [
     'DNSError',
     'Record',
     'DNSMessage',
+    'RData',
+    'create_rdata',
+    'load_rdata',
 ]
 
 REQUEST = 0
@@ -42,6 +45,21 @@ rdata_map = {}
 def rdata(cls):
     rdata_map[cls.rtype] = cls
     return cls
+
+
+def create_rdata(qtype: int, *k) -> 'RData':
+    '''Create RData from parsed data.'''
+    rcls = rdata_map.get(qtype, Unsupported_RData)
+    return rcls(*k)
+
+
+def load_rdata(qtype: int, data: bytes, l: int,
+               size: int) -> Tuple[int, 'RData']:
+    '''Load RData from a byte sequence.'''
+    rcls = rdata_map.get(qtype)
+    if rcls is None:
+        return Unsupported_RData.load(data, l, size, qtype)
+    return rcls.load(data, l, size)
 
 
 class RData:
@@ -339,11 +357,7 @@ class Record:
             self.timestamp = int(time.time())
             self.ttl, dl = struct.unpack('!LH', data[l:l + 6])
             l += 6
-            rcls = rdata_map.get(self.qtype)
-            if rcls is None:
-                _, self.data = Unsupported_RData.load(data, l, dl, self.qtype)
-            else:
-                _, self.data = rcls.load(data, l, dl)
+            _, self.data = load_rdata(self.qtype, data, l, dl)
             l += dl
         return l
 

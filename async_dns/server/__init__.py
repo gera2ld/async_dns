@@ -94,8 +94,8 @@ async def start_dns_server(bind=':53',
     cache = CacheNode()
     cache.add('1.0.0.127.in-addr.arpa',
               qtype=types.PTR,
-              data='async-dns.local')
-    cache.add('localhost', qtype=types.A, data='127.0.0.1')
+              data=('async-dns.local', ))
+    cache.add('localhost', qtype=types.A, data=('127.0.0.1', ))
     if hosts != 'none':
         for rec in parse_hosts_file(None if hosts == 'local' else hosts):
             cache.add(record=rec)

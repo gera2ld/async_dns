@@ -4,7 +4,7 @@ from typing import Dict, Iterable, Union
 from async_dns.core.record import RData
 
 from . import types
-from .record import Record
+from .record import Record, create_rdata, load_rdata
 
 __all__ = ['CacheNode']
 
@@ -68,14 +68,22 @@ class CacheNode:
     def add(self,
             fqdn: str = None,
             qtype: int = None,
-            data=None,
+            data: Union[RData, bytes, Iterable] = None,
             ttl=-1,
             record: Record = None):
         if record is None:
             assert fqdn is not None
             assert qtype is not None
-            assert data is not None
-            record = Record(name=fqdn, data=data, qtype=qtype, ttl=ttl)
+            if isinstance(data, bytes):
+                _, rdata = load_rdata(qtype, data, 0, len(data))
+            elif isinstance(data, RData):
+                rdata = data
+            else:
+                assert not isinstance(
+                    data, str
+                ), 'String data needs to be wrapped in a tuple or list: ' + data
+                rdata = create_rdata(qtype, *data)
+            record = Record(name=fqdn, data=rdata, qtype=qtype, ttl=ttl)
         value = self.get(record.name, True)
         value.add(record)
 
