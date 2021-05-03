@@ -97,8 +97,9 @@ async def start_dns_server(bind=':53',
               data=('async-dns.local', ))
     cache.add('localhost', qtype=types.A, data=('127.0.0.1', ))
     if hosts != 'none':
-        for rec in parse_hosts_file(None if hosts == 'local' else hosts):
-            cache.add(record=rec)
+        for name, qtype, data in parse_hosts_file(None if hosts ==
+                                                  'local' else hosts):
+            cache.add(name, qtype, data)
     if proxies is None:
         # recursive resolver
         resolver = RecursiveResolver(cache)

@@ -26,7 +26,5 @@ def parse_hosts_file(filename=None):
                 pass
             else:
                 for name in it:
-                    yield Record(name=name,
-                                 qtype=addr.ip_type,
-                                 ttl=-1,
-                                 data=addr.hostinfo.hostname)
+                    if isinstance(addr.ip_type, int):
+                        yield name, addr.ip_type, (addr.hostinfo.hostname, )

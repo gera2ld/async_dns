@@ -10,6 +10,7 @@ class TestHosts(unittest.TestCase):
     def test_hosts(self):
         result = list(parse_hosts_file(hosts))
         self.assertEqual(
-            str(result),
-            '[<Record type=response qtype=A name=pi3.lan ttl=-1 data=192.168.199.4>, <Record type=response qtype=A name=red.pi ttl=-1 data=192.168.199.4>]'
+            result,
+            [('pi3.lan', 1, ('192.168.199.4', )),
+             ('red.pi', 1, ('192.168.199.4', ))],
         )
