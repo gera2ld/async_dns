@@ -70,6 +70,9 @@ class RData:
     def __hash__(self):
         return hash(self.data)
 
+    def __eq__(self, other: 'RData'):
+        return self.__class__ == other.__class__ and self.data == other.data
+
     def __repr__(self):
         return '<%s: %s>' % (self.type_name, self.data)
 
