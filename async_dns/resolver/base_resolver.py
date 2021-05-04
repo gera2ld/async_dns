@@ -1,5 +1,5 @@
 import asyncio
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 from async_dns.core import (
     Address,
@@ -18,7 +18,6 @@ A_TYPES = types.A, types.AAAA
 
 
 class BaseResolver:
-    # If listed in zone domains, the resolver is authorative for the responses, e.g. ['.lan']
     zone_domains = []
     nameserver_types = [types.A]
 
@@ -36,6 +35,14 @@ class BaseResolver:
         for rec in msg.an + msg.ns + msg.ar:
             if rec.ttl > 0 and rec.qtype not in (types.SOA, ):
                 self.cache.add(record=rec)
+
+    def set_zone_domains(self, domains: List[str]):
+        '''Set zone domains for the resolver.
+
+        If a domain is listed in zone domains, the resolver is authorative for the responses of all its lower-level domains.
+        For example, if zone_domains has a value of `['lan']`, `pi.lan` will only be resolved in this resolver and not proxied to a remote one.
+        '''
+        self.zone_domains = [domain.lstrip('.') for domain in domains]
 
     async def _query(self, _fqdn: str, _qtype: int) -> Tuple[DNSMessage, bool]:
         raise NotImplementedError
@@ -107,7 +114,7 @@ class BaseResolver:
         has_result = bool(cname) and qtype in (types.CNAME, types.ANY)
         if qtype != types.CNAME:
             has_result = self._add_cache_qtype(msg, fqdn, qtype) or has_result
-        if any(fqdn.endswith(root) for root in self.zone_domains):
+        if any(('.' + fqdn).endswith(root) for root in self.zone_domains):
             if not has_result:
                 msg.r = 3
                 has_result = True
