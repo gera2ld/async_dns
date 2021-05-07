@@ -2,7 +2,7 @@ import io
 import socket
 import struct
 import time
-from typing import Dict, Iterable, Tuple, Union
+from typing import Dict, Iterable, List, Tuple, Union
 
 from . import types
 from .util import get_bits, load_domain_name, load_string, pack_domain_name, pack_string
@@ -394,10 +394,10 @@ class DNSMessage:
         self.rd = rd  # Recursion Desired for request
         self.ra = ra  # Recursion Available for response
         self.r = r  # rcode: 0 for success
-        self.qd = []
-        self.an = []  # answers
-        self.ns = []  # authority records, aka nameservers
-        self.ar = []  # additional records
+        self.qd: List[Record] = []
+        self.an: List[Record] = []  # answers
+        self.ns: List[Record] = []  # authority records, aka nameservers
+        self.ar: List[Record] = []  # additional records
 
     def __bool__(self):
         return any(map(len, (self.an, self.ns)))
@@ -437,7 +437,8 @@ class DNSMessage:
         return buf.getvalue()
 
     @staticmethod
-    def parse_entry(qr: int, data: bytes, l: int, n: int):
+    def parse_entry(qr: int, data: bytes, l: int,
+                    n: int) -> Tuple[int, List[Record]]:
         res = []
         for _ in range(n):
             r = Record(qr)
@@ -465,10 +466,10 @@ class DNSMessage:
         l, ans.ar = ans.parse_entry(RESPONSE, data, l, ar)
         return ans
 
-    def get_record(self, qtypes: Union[str, Iterable[str]]):
+    def get_record(self, qtypes: Union[int, Iterable[int]]):
         '''Get the first record of qtype defined in `qtypes` in answer list.
         '''
-        if isinstance(qtypes, str):
+        if isinstance(qtypes, int):
             qtypes = qtypes,
         for item in self.an:
             if item.qtype in qtypes:

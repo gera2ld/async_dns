@@ -1,16 +1,22 @@
 import asyncio
 import base64
 import json
+from typing import TYPE_CHECKING, Union
 
 from async_dns.core import DNSMessage, REQUEST, Record, types
 
 from .request import send_request
 
+if TYPE_CHECKING:
+    from async_dns.resolver import BaseResolver
+
 
 class DoHClient:
     session = None
 
-    def __init__(self, resolver=None, default_method='GET'):
+    def __init__(self,
+                 resolver: 'BaseResolver' = None,
+                 default_method: str = 'GET'):
         if resolver is None:
             from async_dns import get_nameservers
             from async_dns.resolver import ProxyResolver
@@ -51,14 +57,21 @@ class DoHClient:
         result = DNSMessage.parse(resp.data)
         return result
 
-    async def query(self, url, name, qtype=types.A, method=None):
+    async def query(self,
+                    url: str,
+                    name: str,
+                    qtype: Union[int, str] = types.A,
+                    method: str = None):
         req = DNSMessage(qr=REQUEST)
-        if isinstance(qtype, str):
-            qtype = types.get_code(qtype)
-        req.qd = [Record(REQUEST, name, qtype)]
+        qtype_code = qtype = types.get_code(qtype) if isinstance(
+            qtype, str) else qtype
+        req.qd = [Record(REQUEST, name, qtype_code)]
         return await self.request_message(url, req, method)
 
-    async def query_json(self, url, name, qtype=types.A):
+    async def query_json(self,
+                         url: str,
+                         name: str,
+                         qtype: Union[int, str] = types.A):
         '''Query via JSON APIs for DNS over HTTPS.
 
         All API calls are HTTP GET requests.

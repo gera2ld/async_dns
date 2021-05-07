@@ -30,7 +30,7 @@ for name, code in list(globals().items()):
         _code_mapping[code] = name
 
 
-def get_name(code, default=None):
+def get_name(code: int, default=None) -> str:
     '''
     Get type name from code
     '''
@@ -40,7 +40,7 @@ def get_name(code, default=None):
     return name
 
 
-def get_code(name, default=None):
+def get_code(name: str, default=None) -> int:
     '''
     Get code from type name
     '''

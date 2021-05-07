@@ -62,8 +62,9 @@ async def send_request(url,
     assert host, 'Invalid host'
     if resolver is not None:
         msg, _ = await resolver.query(host)
-        host = msg.get_record((types.A, types.AAAA))
-        assert host, 'DNS lookup failed'
+        rdata = msg.get_record((types.A, types.AAAA))
+        assert rdata, 'DNS lookup failed'
+        host = rdata.data
     async with ConnectionHandle(host, res.port, ssl, res.hostname) as conn:
         reader = conn.reader
         writer = conn.writer

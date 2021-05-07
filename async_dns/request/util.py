@@ -1,6 +1,8 @@
 import asyncio
-import functools
 from collections import deque
+import functools
+from typing import Union
+
 from async_dns.core import logger
 
 
@@ -15,7 +17,13 @@ class ConnectionPool:
     pools = {}
 
     @classmethod
-    def get(cls, host, port=None, ssl=False, hostname=None, max_size=6):
+    def get(cls,
+            host: str,
+            port: int = None,
+            ssl=False,
+            hostname: str = None,
+            max_size: int = 6):
+        assert isinstance(host, str), 'Invalid host: ' + repr(host)
         if port is None:
             port = 443 if ssl else 80
         key = host, port, ssl, hostname
@@ -31,7 +39,8 @@ class ConnectionPool:
             pool.destroy()
         cls.pools.clear()
 
-    def __init__(self, host, port, ssl, hostname, max_size):
+    def __init__(self, host: str, port: int, ssl, hostname: Union[str, None],
+                 max_size: int):
         self.addr = host, port
         self.ssl = ssl
         self.hostname = hostname
