@@ -145,9 +145,30 @@ This library contains a simple implementation of DoH (aka DNS over HTTPS) client
 
 If you need a more powerful DoH client based on [aiohttp](https://docs.aiohttp.org/en/stable/), or a DoH server, consider [async-doh](https://github.com/gera2ld/async-doh).
 
+## DNS Spoofing
+
+You can easily add records to the cache with a hosts file or the cache API.
+
+- Start a server with a custom hosts file:
+
+  ```bash
+  $ python3 -m async_dns.server -b :53 --hosts /path/to/custom/hosts
+  ```
+
+- Add some additional records to a resolver:
+
+  ```python
+  from async_dns.core import parse_hosts_file, types
+
+  for name, qtype, data in parse_hosts_file(hosts):
+      resolver.cache.add(name, qtype, data)
+
+  resolver.cache.add('www.example.com', types.A, ['127.0.0.1'])
+  ```
+
 ## Test
 
-``` sh
+```bash
 $ python3 -m unittest
 
 # Or with tox
