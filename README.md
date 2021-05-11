@@ -2,6 +2,26 @@
 
 [![PyPI](https://img.shields.io/pypi/v/async_dns.svg)]()
 
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Features](#features)
+- [Prerequisite](#prerequisite)
+- [Installation](#installation)
+- [CLI](#cli)
+  - [Resolver](#resolver)
+  - [Server](#server)
+- [API](#api)
+  - [Client](#client)
+  - [Routing](#routing)
+- [DoH support](#doh-support)
+- [DNS Spoofing](#dns-spoofing)
+- [Test](#test)
+- [Logging](#logging)
+- [References](#references)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ## Features
 
 - Built with `asyncio` in pure Python, no third party dependency is required
