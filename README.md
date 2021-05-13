@@ -2,6 +2,8 @@
 
 [![PyPI](https://img.shields.io/pypi/v/async_dns.svg)]()
 
+This is the documentation for v2.x. Click [here](https://github.com/gera2ld/async_dns/tree/v1.1.10) for 1.x documentation.
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
