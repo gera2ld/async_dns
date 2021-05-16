@@ -47,6 +47,7 @@ class CallbackProtocol(asyncio.DatagramProtocol):
 
 class Dispatcher:
     data = {}
+    protocol: CallbackProtocol
 
     def __init__(self, ip_type, local_addr=None):
         self.ip_type = ip_type
@@ -65,7 +66,7 @@ class Dispatcher:
             CallbackProtocol, family=family, local_addr=self.local_addr)
         self.initialized.set_result(None)
 
-    async def send(self, req, addr, timeout):
+    async def send(self, req: DNSMessage, addr: Address, timeout: float):
         qid = self.rand_id.get()
         req.qid = qid
         try:
@@ -73,6 +74,15 @@ class Dispatcher:
                                                   timeout)
         finally:
             self.rand_id.put(qid)
+
+    def destroy(self):
+        self.protocol.transport.close()
+        self.data.pop(self.ip_type, None)
+
+    @classmethod
+    def destroy_all(cls):
+        for dis in list(cls.data.values()):
+            dis.destroy()
 
     @classmethod
     async def get(cls, ip_type):
@@ -84,7 +94,7 @@ class Dispatcher:
         return dispatcher
 
 
-async def request(req, addr, timeout=3.0):
+async def request(req: DNSMessage, addr: Address, timeout: float = 3.0):
     '''
     Send raw data through UDP.
     '''
