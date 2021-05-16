@@ -1,8 +1,10 @@
 import asyncio
 import unittest
-from ..util import async_test
-from async_dns.core import DNSMessage, Record, REQUEST, Address, types
+
+from async_dns.core import Address, DNSMessage, REQUEST, Record, types
 from async_dns.request.udp import Dispatcher, request
+
+from ..util import async_test
 
 
 class MockTransport:
@@ -15,6 +17,9 @@ class MockTransport:
 
     def sendto(self, data, addr):
         self.data.append((data, addr))
+
+    def close(self):
+        pass
 
 
 class MockRandId:
@@ -29,12 +34,11 @@ class TestUDP(unittest.TestCase):
     def setUp(self):
         loop = asyncio.get_event_loop()
         self._create_datagram_endpoint = loop.create_datagram_endpoint
-        _dispatcher_initialize = Dispatcher.initialize
-        self._dispatcher_initialize = _dispatcher_initialize
         self._mock_transport = MockTransport()
+        self._dispatcher_get = Dispatcher.get
 
-        async def mock_create_datagram_endpoint(Protocol, *k, **kw):
-            protocol = Protocol()
+        async def mock_create_datagram_endpoint(factory, *k, **kw):
+            protocol = factory()
             protocol.connection_made(self._mock_transport)
 
             def feed_data():
@@ -46,18 +50,20 @@ class TestUDP(unittest.TestCase):
 
         loop.create_datagram_endpoint = mock_create_datagram_endpoint
 
-        async def initialize(self):
-            self.rand_id = MockRandId()
-            return await _dispatcher_initialize(self)
+        def mock_dispatcher_get(ip_type):
+            dispatcher = self._dispatcher_get(ip_type)
+            dispatcher.rand_id = MockRandId()
+            return dispatcher
 
-        Dispatcher.initialize = initialize
-        Dispatcher.data.clear()
+        Dispatcher.get = mock_dispatcher_get
+
+        Dispatcher.destroy_all()
 
     def tearDown(self):
         loop = asyncio.get_event_loop()
         loop.create_datagram_endpoint = self._create_datagram_endpoint
-        Dispatcher.initialize = self._dispatcher_initialize
-        Dispatcher.data.clear()
+        Dispatcher.destroy_all()
+        Dispatcher.get = self._dispatcher_get
 
     @async_test
     async def test_udp(self):

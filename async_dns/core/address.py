@@ -101,7 +101,7 @@ def get_ip_type(hostname):
 
 
 class Address:
-    def __init__(self, hostinfo, protocol, path=None):
+    def __init__(self, hostinfo: Host, protocol: str, path: str=None):
         self.hostinfo = hostinfo
         self.protocol = protocol
         self.path = path
