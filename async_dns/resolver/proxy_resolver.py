@@ -90,7 +90,7 @@ class ProxyResolver(BaseResolver):
                 try:
                     res = await self.request(fqdn, qtype, addr)
                     assert res.ra, 'The upstream name server must be in recursive mode'
-                    assert res.r == 0, 'Remote server failed'
+                    assert res.r != 2, 'Remote server failed'
                 except:
                     nameservers.fail(addr)
                     raise
