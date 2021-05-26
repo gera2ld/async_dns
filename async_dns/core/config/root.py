@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from .. import types
-from ..record import Record
+from ..record import Record, create_rdata
 from ..util import logger
 
 __all__ = [
@@ -73,10 +73,14 @@ def get_root_servers(filename=CACHE_FILE):
         parts = line.lower().split()
         if len(parts) < 4:
             continue
+        name = parts[0].rstrip('.')
+        # parts[1] (expires) is ignored
+        qtype = types.get_code(parts[2], 0)
+        data_str = parts[3].rstrip('.')
+        data = create_rdata(qtype, data_str)
         yield Record(
-            name=parts[0].rstrip('.'),  # name
-            # parts[1] (expires) is ignored
-            qtype=types.get_code(parts[2], 0),  # qtype
-            data=parts[3].rstrip('.'),  # data
+            name=name,
+            qtype=qtype,
+            data=data,
             ttl=-1,
         )

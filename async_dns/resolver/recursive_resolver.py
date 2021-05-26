@@ -12,11 +12,10 @@ from async_dns.core import (
     logger,
     types,
 )
+from async_dns.core.record import CNAME_RData, NS_RData, SOA_RData
 
 from .base_resolver import BaseResolver
 from .util import Memoizer
-
-A_TYPES = types.A, types.AAAA
 
 
 class RecursiveResolver(BaseResolver):
@@ -45,11 +44,11 @@ class RecursiveResolver(BaseResolver):
                 break
             _, _, fqdn = fqdn.partition('.')
             for rec in self.cache.query(fqdn, types.NS):
-                host = rec.data
+                host = rec.data.data
                 if Address.parse(host, allow_domain=True).ip_type is None:
                     # host is a hostname instead of IP address
-                    for res in self.cache.query(host, A_TYPES):
-                        hosts.append(Address.parse(res.data))
+                    for res in self.cache.query(host, self.nameserver_types):
+                        hosts.append(Address.parse(res.data.data))
                         empty = False
                 else:
                     hosts.append(Address.parse(host))
@@ -100,8 +99,8 @@ class RecursiveResolver(BaseResolver):
 
         for rec in res.an:
             msg.an.append(rec)
-            if rec.qtype == types.CNAME:
-                fqdn = rec.data
+            if isinstance(rec.data, CNAME_RData):
+                fqdn = rec.data.data
                 has_cname = True
             if rec.qtype != types.CNAME or qtype in (types.CNAME, types.ANY):
                 has_result = True
@@ -121,11 +120,14 @@ class RecursiveResolver(BaseResolver):
         # Load name server IPs from res.ar
         nsip_map = {}
         for rec in res.ar:
-            nsip_map[rec.name, rec.qtype] = rec.data
-        hosts = [
-            rec.data.mname if rec.qtype == types.SOA else rec.data
-            for rec in res.ns
-        ]
+            if rec.qtype in self.nameserver_types:
+                nsip_map[rec.name, rec.qtype] = rec.data.data
+        hosts = []
+        for rec in res.ns:
+            if isinstance(rec.data, SOA_RData):
+                hosts.append(rec.data.mname)
+            elif isinstance(rec.data, NS_RData):
+                hosts.append(rec.data.data)
         nsips = []
         for host in hosts:
             for t in self.nameserver_types:
@@ -147,7 +149,7 @@ class RecursiveResolver(BaseResolver):
                     else:
                         for rec in ns_res.an:
                             if rec.qtype == t:
-                                nsips.append(rec.data)
+                                nsips.append(rec.data.data)
                                 break
                 if nsips: break
 
