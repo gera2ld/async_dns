@@ -29,7 +29,11 @@ async def request(req, addr, timeout=3.0):
     '''
     Send raw data with a connection pool.
     '''
-    result = await asyncio.wait_for(_request(req, addr), timeout)
+    try:
+        result = await asyncio.wait_for(_request(req, addr), timeout)
+    except asyncio.IncompleteReadError:
+        # Retry once in case the existing connection is dead
+        result = await asyncio.wait_for(_request(req, addr), timeout)
     return result
 
 
