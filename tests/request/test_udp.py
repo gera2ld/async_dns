@@ -1,10 +1,9 @@
-import asyncio
 import unittest
 
 from async_dns.core import Address, DNSMessage, REQUEST, Record, types
 from async_dns.request.udp import Dispatcher, request
 
-from ..util import async_test
+from ..util import async_test, get_or_create_event_loop
 
 
 class MockTransport:
@@ -32,7 +31,7 @@ class MockRandId:
 
 class TestUDP(unittest.TestCase):
     def setUp(self):
-        loop = asyncio.get_event_loop()
+        loop = get_or_create_event_loop()
         self._create_datagram_endpoint = loop.create_datagram_endpoint
         self._mock_transport = MockTransport()
         self._dispatcher_get = Dispatcher.get
@@ -60,7 +59,7 @@ class TestUDP(unittest.TestCase):
         Dispatcher.destroy_all()
 
     def tearDown(self):
-        loop = asyncio.get_event_loop()
+        loop = get_or_create_event_loop()
         loop.create_datagram_endpoint = self._create_datagram_endpoint
         Dispatcher.destroy_all()
         Dispatcher.get = self._dispatcher_get
